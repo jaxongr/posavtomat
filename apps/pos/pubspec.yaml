@@ -21,6 +21,8 @@ dependencies:
   connectivity_plus: ^6.0.5
   # Functional error handling (Either<Failure, T>)
   dartz: ^0.10.1
+  # Idempotency keys
+  uuid: ^4.5.1
   # UI
   google_fonts: ^6.2.1
 

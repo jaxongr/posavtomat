@@ -1,0 +1,76 @@
+# SAVDO-POS production stack — ISOLATED so it never collides with other
+# projects on the server: dedicated project name, internal-only DB/Redis,
+# non-default published ports. Run from repo root:
+#   docker compose -p savdo-pos --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build
+name: savdo-pos
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    # Bind to localhost only on a non-default port — invisible to other stacks.
+    ports:
+      - '127.0.0.1:55432:5432'
+    volumes:
+      - savdo_pos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - '127.0.0.1:56379:6379'
+    volumes:
+      - savdo_pos_redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ..
+      dockerfile: apps/backend/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      API_PREFIX: api/v1
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+      DEFAULT_CURRENCY: UZS
+    ports:
+      - '127.0.0.1:3010:3000'
+
+  admin:
+    build:
+      context: ..
+      dockerfile: apps/admin/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    # Public entry point for the admin panel + API proxy.
+    ports:
+      - '8090:80'
+
+volumes:
+  savdo_pos_pgdata:
+  savdo_pos_redisdata:
