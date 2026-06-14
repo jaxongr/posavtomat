@@ -1,7 +1,17 @@
 import { BusinessType, PrismaClient, ProductType, Role, Unit } from '@prisma/client';
-import { hashSecret } from '../src/common/crypto/hash.util';
+import { randomBytes, scrypt as scryptCb } from 'node:crypto';
+import { promisify } from 'node:util';
 
 const prisma = new PrismaClient();
+const scrypt = promisify(scryptCb);
+
+// Inlined to keep the seed self-contained (no src import) — must match
+// the format produced by src/common/crypto/hash.util.ts (<saltHex>:<hashHex>).
+async function hashSecret(plain: string): Promise<string> {
+  const salt = randomBytes(16).toString('hex');
+  const derived = (await scrypt(plain, salt, 64)) as Buffer;
+  return `${salt}:${derived.toString('hex')}`;
+}
 
 async function main(): Promise<void> {
   // Idempotent seed — safe to run repeatedly.

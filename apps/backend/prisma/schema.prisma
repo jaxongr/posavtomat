@@ -4,7 +4,9 @@
 // Migration naming: YYYYMMDD_description
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // native = local dev; musl target = alpine Docker runtime (OpenSSL 3).
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
 datasource db {

@@ -1,6 +1,8 @@
 # Build from the monorepo ROOT context:  docker build -f apps/backend/Dockerfile .
 FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
+# Prisma engines on alpine need OpenSSL + libstdc++ to load.
+RUN apk add --no-cache openssl libstdc++ \
+  && corepack enable && corepack prepare pnpm@9.12.0 --activate
 WORKDIR /app
 
 # ---- deps ----
@@ -29,5 +31,6 @@ COPY --from=build /app/apps/backend/prisma /app/apps/backend/prisma
 COPY --from=build /app/apps/backend/package.json /app/apps/backend/package.json
 WORKDIR /app/apps/backend
 EXPOSE 3000
-# Apply migrations then start.
-CMD ["sh", "-c", "pnpm prisma migrate deploy && node dist/main.js"]
+# First deploy: sync schema to DB via db push (no migration history yet),
+# then start. Switch to `prisma migrate deploy` once migrations are committed.
+CMD ["sh", "-c", "pnpm exec prisma db push --skip-generate --accept-data-loss && node dist/main.js"]
