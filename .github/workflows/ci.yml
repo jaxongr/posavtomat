@@ -1,0 +1,86 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  backend:
+    name: Backend (lint • typecheck • test)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: savdo
+          POSTGRES_PASSWORD: savdo
+          POSTGRES_DB: savdo_pos_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U savdo"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://savdo:savdo@localhost:5432/savdo_pos_test?schema=public
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @savdo-pos/backend prisma:generate
+      - run: pnpm --filter @savdo-pos/backend lint
+      - run: pnpm --filter @savdo-pos/backend typecheck
+      - run: pnpm --filter @savdo-pos/backend prisma:migrate:deploy
+      - run: pnpm --filter @savdo-pos/backend test:cov
+      - run: pnpm --filter @savdo-pos/backend test:integration
+
+  admin:
+    name: Admin (lint • typecheck • build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @savdo-pos/admin lint
+      - run: pnpm --filter @savdo-pos/admin typecheck
+      - run: pnpm --filter @savdo-pos/admin build
+
+  pos:
+    name: POS (Flutter analyze • test)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/pos
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test

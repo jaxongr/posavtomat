@@ -1,0 +1,650 @@
+// SAVDO-POS — Prisma schema (neutral core: DOKON | RESTORAN)
+// Rules: tenant scope (organizationId/branchId), soft delete, UUID id,
+// money = Decimal(14,2), quantity = Decimal(14,3) (kg fractions), no float.
+// Migration naming: YYYYMMDD_description
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ════════════════════════════════ ENUMS ════════════════════════════════
+
+enum BusinessType {
+  DOKON
+  RESTORAN
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  CASHIER
+  WAITER
+  COOK
+  STOCKKEEPER
+}
+
+enum Unit {
+  DONA // piece
+  KG // weight
+  PORSIYA // portion (restaurant)
+  LITR // volume
+}
+
+enum ProductType {
+  GOODS // do'kon mahsuloti
+  DISH // restoran taomi (has recipe)
+  INGREDIENT // xom ashyo (deducted via recipe)
+}
+
+enum StockMovementType {
+  IN // kirim (purchase)
+  OUT // chiqim (manual)
+  ADJUST // inventarizatsiya tuzatish
+  SALE // savdo natijasida kamayish
+  WASTE // chiqindi/yo'qotish
+  RETURN // qaytarish (vozvrat) — qoldiq qaytadi
+}
+
+enum SaleType {
+  POS // do'kon kassa
+  DINE_IN // restoran zal
+  TAKEAWAY
+  DELIVERY
+}
+
+enum SaleStatus {
+  DRAFT // savat / ochiq buyurtma
+  OPEN // restoran: stolda ochiq
+  COMPLETED // to'langan va yopilgan
+  CANCELLED
+  REFUNDED
+}
+
+enum PaidStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  REFUNDED
+}
+
+enum PaymentProvider {
+  CASH
+  CARD // lokal terminal
+  PAYME // 7-bosqich
+  CLICK // 7-bosqich
+  UZUM // 7-bosqich
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum KotStatus {
+  NEW
+  COOKING
+  READY
+  SERVED
+}
+
+enum TableStatus {
+  FREE
+  OCCUPIED
+  BILL // hisob kutmoqda
+}
+
+enum DiscountType {
+  PERCENT
+  FIXED
+}
+
+enum PurchaseStatus {
+  DRAFT
+  RECEIVED // qabul qilindi — qoldiq oshdi
+  CANCELLED
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum RegisterStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// ════════════════════════════ TENANT & STAFF ════════════════════════════
+
+model Organization {
+  id           String       @id @default(uuid())
+  name         String
+  businessType BusinessType
+  settings     Json         @default("{}") // white-label theme, features, currency
+  active       Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  branches   Branch[]
+  staff      Staff[]
+  categories Category[]
+  products   Product[]
+  modifiers  Modifier[]
+  suppliers  Supplier[]
+  discounts  Discount[]
+  customers  Customer[]
+  stocks     Stock[]
+  purchases  Purchase[]
+  tables     DiningTable[]
+  sales      Sale[]
+  shifts     Shift[]
+  registers  Register[]
+
+  @@index([active])
+  @@map("organizations")
+}
+
+model Branch {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  address        String?
+  phone          String?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  staff      Staff[]
+  stocks     Stock[]
+  movements  StockMovement[]
+  purchases  Purchase[]
+  tables     DiningTable[]
+  sales      Sale[]
+  shifts     Shift[]
+  registers  Register[]
+
+  @@index([organizationId])
+  @@index([organizationId, active])
+  @@map("branches")
+}
+
+model Staff {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String? // null = barcha filiallarga ruxsat (OWNER/MANAGER)
+  fish           String // F.I.Sh.
+  phone          String?
+  role           Role
+  pinHash        String? // kassir tez kirishi
+  passwordHash   String? // panel kirishi
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+
+  sales     Sale[]
+  shifts    Shift[]
+  auditLogs AuditLog[]
+
+  @@index([organizationId])
+  @@index([organizationId, branchId, active])
+  @@index([organizationId, role])
+  @@map("staff")
+}
+
+model Register {
+  id             String         @id @default(uuid())
+  organizationId String
+  branchId       String
+  name           String // "Kassa 1"
+  status         RegisterStatus @default(ACTIVE)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  branch         Branch         @relation(fields: [branchId], references: [id])
+
+  shifts Shift[]
+  sales  Sale[]
+
+  @@index([organizationId, branchId])
+  @@map("registers")
+}
+
+// ══════════════════════════════ CATALOG ══════════════════════════════
+
+model Category {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  parentId       String?
+  sort           Int          @default(0)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  parent         Category?    @relation("CategoryTree", fields: [parentId], references: [id])
+  children       Category[]   @relation("CategoryTree")
+
+  products Product[]
+
+  @@index([organizationId])
+  @@index([organizationId, active])
+  @@map("categories")
+}
+
+model Product {
+  id             String       @id @default(uuid())
+  organizationId String
+  categoryId     String?
+  name           String
+  sku            String?
+  barcode        String?
+  unit           Unit         @default(DONA)
+  type           ProductType  @default(GOODS)
+  price          Decimal      @db.Decimal(14, 2)
+  cost           Decimal      @default(0) @db.Decimal(14, 2)
+  imageUrl       String?
+  trackStock     Boolean      @default(true) // xizmat/taom uchun false bo'lishi mumkin
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  category       Category?    @relation(fields: [categoryId], references: [id])
+
+  variants       ProductVariant[]
+  stocks         Stock[]
+  movements      StockMovement[]
+  saleItems      SaleItem[]
+  purchaseItems  PurchaseItem[]
+  recipe         Recipe? // type=DISH bo'lsa
+  recipeItems    RecipeItem[]     @relation("IngredientOf") // type=INGREDIENT bo'lsa
+
+  @@unique([organizationId, barcode])
+  @@unique([organizationId, sku])
+  @@index([organizationId])
+  @@index([organizationId, active])
+  @@index([organizationId, categoryId])
+  @@index([organizationId, type])
+  @@map("products")
+}
+
+model ProductVariant {
+  id         String   @id @default(uuid())
+  productId  String
+  name       String // "Katta", "Qizil"
+  priceDelta Decimal  @default(0) @db.Decimal(14, 2)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  deletedAt  DateTime?
+  product    Product  @relation(fields: [productId], references: [id])
+
+  saleItems SaleItem[]
+
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model Modifier {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String // "Qo'shimcha pishloq"
+  group          String? // "Sous", "O'lcham"
+  priceDelta     Decimal      @default(0) @db.Decimal(14, 2)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@index([organizationId, active])
+  @@map("modifiers")
+}
+
+// ═══════════════════════ RECIPES (RESTORAN) ═══════════════════════
+
+model Recipe {
+  id            String       @id @default(uuid())
+  dishProductId String       @unique
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  dish          Product      @relation(fields: [dishProductId], references: [id])
+
+  items RecipeItem[]
+
+  @@map("recipes")
+}
+
+model RecipeItem {
+  id           String  @id @default(uuid())
+  recipeId     String
+  ingredientId String
+  qty          Decimal @db.Decimal(14, 3) // ingredient miqdori (1 porsiya uchun)
+  recipe       Recipe  @relation(fields: [recipeId], references: [id])
+  ingredient   Product @relation("IngredientOf", fields: [ingredientId], references: [id])
+
+  @@unique([recipeId, ingredientId])
+  @@index([recipeId])
+  @@map("recipe_items")
+}
+
+// ════════════════════════════ INVENTORY ════════════════════════════
+
+model Stock {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  productId      String
+  quantity       Decimal      @default(0) @db.Decimal(14, 3) // hech qachon < 0
+  minQuantity    Decimal      @default(0) @db.Decimal(14, 3) // kam qoldiq signali
+  updatedAt      DateTime     @updatedAt
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  product        Product      @relation(fields: [productId], references: [id])
+
+  @@unique([branchId, productId])
+  @@index([organizationId, branchId])
+  @@index([branchId, productId])
+  @@map("stocks")
+}
+
+model StockMovement {
+  id        String            @id @default(uuid())
+  branchId  String
+  productId String
+  type      StockMovementType
+  qty       Decimal           @db.Decimal(14, 3) // +/- ishorali (IN: +, SALE: -)
+  refType   String? // "SALE" | "PURCHASE" | "INVENTORY" | "MANUAL"
+  refId     String? // bog'liq hujjat id
+  note      String?
+  createdAt DateTime          @default(now())
+  branch    Branch            @relation(fields: [branchId], references: [id])
+  product   Product           @relation(fields: [productId], references: [id])
+
+  @@index([branchId, productId])
+  @@index([branchId, createdAt])
+  @@index([refType, refId])
+  @@map("stock_movements")
+}
+
+// ═══════════════════════ SUPPLIERS & PURCHASE ═══════════════════════
+
+model Supplier {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  phone          String?
+  note           String?
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  purchases Purchase[]
+
+  @@index([organizationId, active])
+  @@map("suppliers")
+}
+
+model Purchase {
+  id             String         @id @default(uuid())
+  organizationId String
+  branchId       String
+  supplierId     String?
+  status         PurchaseStatus @default(DRAFT)
+  total          Decimal        @default(0) @db.Decimal(14, 2)
+  note           String?
+  receivedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  deletedAt      DateTime?
+  organization   Organization   @relation(fields: [organizationId], references: [id])
+  branch         Branch         @relation(fields: [branchId], references: [id])
+  supplier       Supplier?      @relation(fields: [supplierId], references: [id])
+
+  items PurchaseItem[]
+
+  @@index([organizationId, branchId])
+  @@index([organizationId, status])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id         String   @id @default(uuid())
+  purchaseId String
+  productId  String
+  qty        Decimal  @db.Decimal(14, 3)
+  cost       Decimal  @db.Decimal(14, 2) // birlik tannarxi
+  purchase   Purchase @relation(fields: [purchaseId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+
+  @@index([purchaseId])
+  @@map("purchase_items")
+}
+
+// ═══════════════════════ TABLES (RESTORAN) ═══════════════════════
+
+model DiningTable {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  name           String // "Stol 5"
+  zone           String? // "Zal", "Terassa"
+  seats          Int          @default(4)
+  status         TableStatus  @default(FREE)
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch       @relation(fields: [branchId], references: [id])
+
+  sales Sale[]
+
+  @@index([organizationId, branchId])
+  @@index([branchId, status])
+  @@map("dining_tables")
+}
+
+// ════════════════════════════ SALES (POS) ════════════════════════════
+
+model Sale {
+  id             String        @id @default(uuid())
+  organizationId String
+  branchId       String
+  registerId     String?
+  shiftId        String?
+  staffId        String
+  customerId     String?
+  tableId        String? // restoran
+  type           SaleType
+  status         SaleStatus    @default(DRAFT)
+  paidStatus     PaidStatus    @default(UNPAID)
+  subtotal       Decimal       @default(0) @db.Decimal(14, 2)
+  discount       Decimal       @default(0) @db.Decimal(14, 2)
+  total          Decimal       @default(0) @db.Decimal(14, 2)
+  idempotencyKey String? // savdo yakuni idempotent
+  note           String?
+  completedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  deletedAt      DateTime?
+  organization   Organization  @relation(fields: [organizationId], references: [id])
+  branch         Branch        @relation(fields: [branchId], references: [id])
+  register       Register?     @relation(fields: [registerId], references: [id])
+  shift          Shift?        @relation(fields: [shiftId], references: [id])
+  staff          Staff         @relation(fields: [staffId], references: [id])
+  customer       Customer?     @relation(fields: [customerId], references: [id])
+  table          DiningTable?  @relation(fields: [tableId], references: [id])
+
+  items    SaleItem[]
+  payments Payment[]
+  kots     Kot[]
+
+  @@unique([organizationId, idempotencyKey])
+  @@index([organizationId, branchId])
+  @@index([branchId, createdAt])
+  @@index([organizationId, status])
+  @@index([shiftId])
+  @@index([tableId])
+  @@map("sales")
+}
+
+model SaleItem {
+  id        String          @id @default(uuid())
+  saleId    String
+  productId String
+  variantId String?
+  qty       Decimal         @db.Decimal(14, 3)
+  price     Decimal         @db.Decimal(14, 2) // sotilgan birlik narxi (variant+modifier bilan)
+  cost      Decimal         @default(0) @db.Decimal(14, 2) // tannarx (foyda hisobi)
+  modifiers Json            @default("[]") // [{id,name,priceDelta}]
+  sale      Sale            @relation(fields: [saleId], references: [id])
+  product   Product         @relation(fields: [productId], references: [id])
+  variant   ProductVariant? @relation(fields: [variantId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+  @@map("sale_items")
+}
+
+model Kot {
+  id        String    @id @default(uuid())
+  saleId    String
+  status    KotStatus @default(NEW)
+  items     Json // [{saleItemId, name, qty, modifiers, note}]
+  sentAt    DateTime  @default(now())
+  readyAt   DateTime?
+  servedAt  DateTime?
+  sale      Sale      @relation(fields: [saleId], references: [id])
+
+  @@index([saleId])
+  @@index([status])
+  @@map("kots")
+}
+
+// ════════════════════════════ PAYMENTS ════════════════════════════
+
+model Payment {
+  id             String          @id @default(uuid())
+  saleId         String
+  provider       PaymentProvider
+  amount         Decimal         @db.Decimal(14, 2)
+  status         PaymentStatus   @default(PENDING)
+  externalId     String? // provayder tranzaksiya id (Payme/Click/Uzum)
+  idempotencyKey String          @unique // double-charge YO'Q
+  meta           Json            @default("{}")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  sale           Sale            @relation(fields: [saleId], references: [id])
+
+  @@index([saleId])
+  @@index([provider, status])
+  @@map("payments")
+}
+
+// ════════════════════════════ DISCOUNTS ════════════════════════════
+
+model Discount {
+  id             String       @id @default(uuid())
+  organizationId String
+  name           String
+  type           DiscountType
+  value          Decimal      @db.Decimal(14, 2) // PERCENT: 0-100 | FIXED: summa
+  promoCode      String?
+  conditions     Json         @default("{}") // {minTotal, products[], dateRange}
+  active         Boolean      @default(true)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  @@unique([organizationId, promoCode])
+  @@index([organizationId, active])
+  @@map("discounts")
+}
+
+// ════════════════════════════ CUSTOMERS ════════════════════════════
+
+model Customer {
+  id             String       @id @default(uuid())
+  organizationId String
+  fish           String
+  phone          String?
+  loyaltyPoints  Int          @default(0)
+  note           String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  deletedAt      DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+
+  sales Sale[]
+
+  @@unique([organizationId, phone])
+  @@index([organizationId])
+  @@map("customers")
+}
+
+// ════════════════════════════ SHIFTS ════════════════════════════
+
+model Shift {
+  id             String       @id @default(uuid())
+  organizationId String
+  branchId       String
+  registerId     String?
+  staffId        String
+  status         ShiftStatus  @default(OPEN)
+  openCash       Decimal      @default(0) @db.Decimal(14, 2)
+  closeCash      Decimal?     @db.Decimal(14, 2)
+  totalSales     Decimal      @default(0) @db.Decimal(14, 2)
+  cashSales      Decimal      @default(0) @db.Decimal(14, 2)
+  cardSales      Decimal      @default(0) @db.Decimal(14, 2)
+  cashDiff       Decimal?     @db.Decimal(14, 2) // kassa farqi (Z-hisobot)
+  openedAt       DateTime     @default(now())
+  closedAt       DateTime?
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  branch         Branch       @relation(fields: [branchId], references: [id])
+  register       Register?    @relation(fields: [registerId], references: [id])
+  staff          Staff        @relation(fields: [staffId], references: [id])
+
+  sales Sale[]
+
+  @@index([organizationId, branchId])
+  @@index([branchId, status])
+  @@index([staffId, status])
+  @@map("shifts")
+}
+
+// ════════════════════════════ AUDIT ════════════════════════════
+
+model AuditLog {
+  id       String   @id @default(uuid())
+  staffId  String?
+  action   String // "SALE_CREATE", "REFUND", "SHIFT_CLOSE", "DISCOUNT_APPLY"
+  entity   String // "Sale", "Stock", "Shift"
+  entityId String?
+  oldValue Json?
+  newValue Json?
+  createdAt DateTime @default(now())
+  staff    Staff?   @relation(fields: [staffId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([staffId, createdAt])
+  @@map("audit_logs")
+}

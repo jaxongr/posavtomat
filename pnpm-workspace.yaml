@@ -1,0 +1,5 @@
+packages:
+  - 'apps/backend'
+  - 'apps/admin'
+  - 'packages/*'
+# Note: apps/pos is a Flutter app (Dart toolchain), not a pnpm workspace member.

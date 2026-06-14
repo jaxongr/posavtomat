@@ -1,0 +1,13 @@
+{
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "rootDir": "..",
+  "testRegex": "test/.*\\.integration\\.spec\\.ts$",
+  "transform": {
+    "^.+\\.ts$": ["ts-jest", { "tsconfig": "tsconfig.json" }]
+  },
+  "testEnvironment": "node",
+  "maxWorkers": 1,
+  "moduleNameMapper": {
+    "^@savdo-pos/shared-types$": "<rootDir>/../../packages/shared-types/src/index.ts"
+  }
+}

@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Prisma
+apps/backend/prisma/*.db
+
+# Flutter (apps/pos)
+apps/pos/.dart_tool/
+apps/pos/.flutter-plugins
+apps/pos/.flutter-plugins-dependencies
+apps/pos/build/
+apps/pos/.idea/
+apps/pos/ios/Pods/
+apps/pos/android/.gradle/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage/

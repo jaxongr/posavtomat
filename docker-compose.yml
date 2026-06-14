@@ -1,0 +1,39 @@
+# Dev infrastructure: PostgreSQL + Redis.
+# Backend ishlaydi lokal `pnpm dev:backend` orqali (hot reload).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: savdo_pos_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-savdo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-savdo}
+      POSTGRES_DB: ${POSTGRES_DB:-savdo_pos}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-savdo}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: savdo_pos_redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    ports:
+      - '${REDIS_PORT:-6379}:6379'
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pgdata:
+  redisdata:
