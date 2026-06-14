@@ -1,70 +1,65 @@
-import { App, Button, Card, Descriptions, Input, Tag, Typography } from 'antd';
-import { useState } from 'react';
+import { App, Button, Space, Table, Tag, Typography } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiErrorMessage } from '../../api/client';
 import { salesApi } from '../../api/endpoints';
-import type { Sale } from '../../types';
+import { QueryBoundary } from '../../components/common/QueryBoundary';
+import { useSalesHistory } from '../../hooks/useReports';
+import type { SaleListRow } from '../../types';
+
+const statusColor: Record<string, string> = {
+  COMPLETED: 'green',
+  REFUNDED: 'red',
+  CANCELLED: 'default',
+  DRAFT: 'orange',
+  OPEN: 'blue',
+};
 
 export default function SalesPage() {
-  const { message } = App.useApp();
-  const [id, setId] = useState('');
-  const [sale, setSale] = useState<Sale | null>(null);
-  const [loading, setLoading] = useState(false);
+  const query = useSalesHistory();
+  const qc = useQueryClient();
+  const { message, modal } = App.useApp();
 
-  const lookup = async (value: string) => {
-    setLoading(true);
-    try {
-      setSale(await salesApi.getOne(value));
-    } catch (e) {
-      message.error(apiErrorMessage(e));
-      setSale(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const refund = (id: string) =>
+    modal.confirm({
+      title: 'Savdoni qaytarish',
+      content: 'Qoldiq qaytariladi. Davom etilsinmi?',
+      okText: 'Qaytarish',
+      cancelText: 'Bekor',
+      onOk: async () => {
+        try {
+          await salesApi.refund(id);
+          message.success('Savdo qaytarildi');
+          void qc.invalidateQueries({ queryKey: ['sales-history'] });
+        } catch (e) {
+          message.error(apiErrorMessage(e));
+        }
+      },
+    });
 
-  const refund = async () => {
-    if (!sale) return;
-    try {
-      setSale(await salesApi.refund(sale.id));
-      message.success('Savdo qaytarildi');
-    } catch (e) {
-      message.error(apiErrorMessage(e));
-    }
-  };
+  const columns = [
+    { title: 'Chek', dataIndex: 'id', render: (v: string) => v.slice(0, 8) },
+    { title: 'Sana', dataIndex: 'createdAt', render: (v: string) => new Date(v).toLocaleString() },
+    { title: 'Kassir', render: (_: unknown, r: SaleListRow) => r.staff?.fish ?? '—' },
+    { title: 'Tur', dataIndex: 'type', render: (v: string) => <Tag>{v}</Tag> },
+    { title: 'Jami', dataIndex: 'total', render: (v: string) => `${Number(v).toLocaleString()} so‘m` },
+    { title: 'Holat', dataIndex: 'status', render: (v: string) => <Tag color={statusColor[v]}>{v}</Tag> },
+    {
+      title: '',
+      render: (_: unknown, r: SaleListRow) =>
+        r.status === 'COMPLETED' && (
+          <Button danger size="small" onClick={() => refund(r.id)}>Qaytarish</Button>
+        ),
+    },
+  ];
 
   return (
     <>
-      <Typography.Title level={3}>Savdo / Chek</Typography.Title>
-      <Input.Search
-        placeholder="Savdo ID (chek raqami)"
-        enterButton="Topish"
-        loading={loading}
-        onSearch={lookup}
-        value={id}
-        onChange={(e) => setId(e.target.value)}
-        style={{ maxWidth: 480, marginBottom: 16 }}
-      />
-      {sale && (
-        <Card
-          title={`Chek ${sale.id.slice(0, 8)}`}
-          extra={
-            sale.status === 'COMPLETED' ? (
-              <Button danger onClick={refund}>Qaytarish (vozvrat)</Button>
-            ) : (
-              <Tag color="red">{sale.status}</Tag>
-            )
-          }
-        >
-          <Descriptions column={2}>
-            <Descriptions.Item label="Turi">{sale.type}</Descriptions.Item>
-            <Descriptions.Item label="Holat">{sale.status}</Descriptions.Item>
-            <Descriptions.Item label="Oraliq summa">{Number(sale.subtotal).toLocaleString()} so‘m</Descriptions.Item>
-            <Descriptions.Item label="Chegirma">{Number(sale.discount).toLocaleString()} so‘m</Descriptions.Item>
-            <Descriptions.Item label="Jami">{Number(sale.total).toLocaleString()} so‘m</Descriptions.Item>
-            <Descriptions.Item label="Sana">{new Date(sale.createdAt).toLocaleString()}</Descriptions.Item>
-          </Descriptions>
-        </Card>
-      )}
+      <Space style={{ marginBottom: 16 }}>
+        <Typography.Title level={3} style={{ margin: 0 }}>Savdo tarixi</Typography.Title>
+      </Space>
+      <QueryBoundary isLoading={query.isLoading} error={query.error} data={query.data} isEmpty={(d) => d.data.length === 0}>
+        {(d) => <Table rowKey="id" dataSource={d.data} columns={columns} pagination={{ pageSize: 20 }} />}
+      </QueryBoundary>
     </>
   );
 }

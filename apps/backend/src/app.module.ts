@@ -17,6 +17,9 @@ import { InventoryModule } from './modules/inventory/inventory.module';
 import { SuppliersModule } from './modules/suppliers/suppliers.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { ShiftsModule } from './modules/shifts/shifts.module';
+import { StaffModule } from './modules/staff/staff.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { OrganizationModule } from './modules/organization/organization.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -35,6 +38,9 @@ import { HealthModule } from './modules/health/health.module';
     SuppliersModule,
     SalesModule,
     ShiftsModule,
+    StaffModule,
+    ReportsModule,
+    OrganizationModule,
     HealthModule,
   ],
   providers: [

@@ -8,6 +8,7 @@ COPY packages/eslint-config/package.json packages/eslint-config/
 COPY apps/admin/package.json apps/admin/
 RUN pnpm install --frozen-lockfile --filter @savdo-pos/admin...
 COPY packages/shared-types packages/shared-types
+RUN pnpm --filter @savdo-pos/shared-types build
 COPY apps/admin apps/admin
 WORKDIR /app/apps/admin
 RUN pnpm build

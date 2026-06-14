@@ -68,3 +68,38 @@ export interface Page<T> {
   data: T[];
   meta: { total: number; cursor?: string; hasNext: boolean };
 }
+
+export interface Branch {
+  id: string;
+  name: string;
+  address: string | null;
+}
+
+export interface Staff {
+  id: string;
+  fish: string;
+  phone: string | null;
+  role: AuthUser['role'];
+  branchId: string | null;
+  active: boolean;
+  createdAt: string;
+}
+
+export interface DashboardData {
+  todaySalesTotal: string;
+  todaySalesCount: number;
+  lowStockCount: number;
+  topProducts: { productId: string; name: string; revenue: string }[];
+}
+
+export interface SaleListRow {
+  id: string;
+  type: string;
+  status: string;
+  total: string;
+  discount: string;
+  subtotal: string;
+  paidStatus: string;
+  createdAt: string;
+  staff: { fish: string } | null;
+}

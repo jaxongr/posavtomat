@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiErrorMessage } from '../../api/client';
 import { authApi } from '../../api/endpoints';
+import { allowedRoutes } from '../../components/layout/AppLayout';
 import { useAuthStore } from '../../store/auth.store';
 
 export default function LoginPage() {
@@ -16,7 +17,8 @@ export default function LoginPage() {
     try {
       const tokens = await authApi.login(values.login, values.password);
       setAuth(tokens);
-      navigate('/');
+      const home = allowedRoutes(tokens.user.role)[0] ?? '/';
+      navigate(home);
     } catch (e) {
       message.error(apiErrorMessage(e));
     } finally {

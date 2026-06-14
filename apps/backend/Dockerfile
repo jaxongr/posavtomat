@@ -16,6 +16,8 @@ RUN pnpm install --frozen-lockfile --filter @savdo-pos/backend...
 # ---- build ----
 FROM deps AS build
 COPY packages/shared-types packages/shared-types
+# Compile shared-types to CJS so the backend can require() it at runtime.
+RUN pnpm --filter @savdo-pos/shared-types build
 COPY apps/backend apps/backend
 WORKDIR /app/apps/backend
 RUN pnpm prisma generate && pnpm build

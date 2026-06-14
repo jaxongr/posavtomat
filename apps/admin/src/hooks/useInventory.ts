@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App } from 'antd';
 import { apiErrorMessage } from '../api/client';
-import { inventoryApi, shiftsApi } from '../api/endpoints';
+import { inventoryApi } from '../api/endpoints';
 
 export const useStock = (lowOnly = false) =>
   useQuery({
@@ -21,6 +21,3 @@ export const useAdjustStock = () => {
     onError: (e) => message.error(apiErrorMessage(e)),
   });
 };
-
-export const useCurrentShift = () =>
-  useQuery({ queryKey: ['shift', 'current'], queryFn: shiftsApi.current });
