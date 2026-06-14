@@ -31,6 +31,6 @@ $COMPOSE exec -T backend pnpm prisma:seed || echo "seed skipped/failed (non-fata
 
 echo ""
 echo "✅ Tayyor."
-echo "   Admin panel : http://<SERVER_IP>:8090"
+echo "   Admin panel : http://<SERVER_IP>:8095"
 echo "   API (lokal) : http://127.0.0.1:3010/api/v1  (Swagger: /api/v1/docs)"
 echo "   Demo: owner login=+998901112233 parol=owner123 | kassir PIN=1234 (staffId seed'da)"

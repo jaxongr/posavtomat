@@ -68,8 +68,9 @@ services:
     depends_on:
       - backend
     # Public entry point for the admin panel + API proxy.
+    # 8090 is taken by another project's nginx — using 8095.
     ports:
-      - '8090:80'
+      - '8095:80'
 
 volumes:
   savdo_pos_pgdata:
