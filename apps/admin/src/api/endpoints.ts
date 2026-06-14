@@ -73,6 +73,18 @@ export const reportsApi = {
     api.get<Page<SaleListRow>>('/reports/sales', { params }).then((r) => r.data),
 };
 
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string | null;
+}
+
+export const suppliersApi = {
+  list: () => api.get<{ data: Supplier[] }>('/suppliers').then((r) => r.data.data),
+  create: (body: { name: string; phone?: string }) =>
+    api.post<{ data: Supplier }>('/suppliers', body).then((r) => r.data.data),
+};
+
 export const staffApi = {
   list: () => api.get<{ data: Staff[] }>('/staff').then((r) => r.data.data),
   create: (body: {

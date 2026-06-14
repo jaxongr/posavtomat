@@ -9,6 +9,7 @@ const DashboardPage = lazy(() => import('./pages/dashboard/DashboardPage'));
 const KassaPage = lazy(() => import('./pages/kassa/KassaPage'));
 const ProductsPage = lazy(() => import('./pages/products/ProductsPage'));
 const InventoryPage = lazy(() => import('./pages/inventory/InventoryPage'));
+const PurchasePage = lazy(() => import('./pages/purchase/PurchasePage'));
 const SalesPage = lazy(() => import('./pages/sales/SalesPage'));
 const StaffPage = lazy(() => import('./pages/staff/StaffPage'));
 const ShiftsPage = lazy(() => import('./pages/shifts/ShiftsPage'));
@@ -48,6 +49,7 @@ export default function App() {
           <Route path="/kassa" element={<KassaPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/inventory" element={<InventoryPage />} />
+          <Route path="/purchase" element={<PurchasePage />} />
           <Route path="/sales" element={<SalesPage />} />
           <Route path="/staff" element={<StaffPage />} />
           <Route path="/shifts" element={<ShiftsPage />} />

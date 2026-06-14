@@ -19,9 +19,13 @@ BRANCH=$(curl -sS "$API/branches" -H "Authorization: Bearer $OTOKEN" | jq -r '.d
 echo "== 3. Products (owner, x-branch-id) =="
 PCOUNT=$(curl -sS "$API/products" -H "Authorization: Bearer $OTOKEN" -H "x-branch-id: $BRANCH" | jq '.data | length')
 [ "$PCOUNT" -ge 1 ] && ok "mahsulotlar: $PCOUNT ta" || bad "products"
-PID=$(curl -sS "$API/products" -H "Authorization: Bearer $OTOKEN" -H "x-branch-id: $BRANCH" | jq -r '.data[0].id')
-QTY0=$(curl -sS "$API/products" -H "Authorization: Bearer $OTOKEN" -H "x-branch-id: $BRANCH" | jq -r '.data[0].stocks[0].quantity')
-echo "    product=$PID boshlang'ich qoldiq=$QTY0"
+PROW=$(curl -sS "$API/products" -H "Authorization: Bearer $OTOKEN" -H "x-branch-id: $BRANCH" | jq -c '.data[0]')
+PID=$(echo "$PROW" | jq -r '.id')
+PRICE=$(echo "$PROW" | jq -r '.price')
+QTY0=$(echo "$PROW" | jq -r '.stocks[0].quantity')
+AMT2=$(awk "BEGIN{printf \"%.0f\", $PRICE*2}")
+AMTBIG=$(awk "BEGIN{printf \"%.0f\", $PRICE*999999}")
+echo "    product=$PID narx=$PRICE qoldiq=$QTY0"
 
 echo "== 4. Cashier login (password) =="
 CASH=$(curl -sS -X POST "$API/auth/login" -H 'Content-Type: application/json' \
@@ -39,7 +43,7 @@ echo "== 6. Sale (2x) — atomic =="
 KEY=$(cat /proc/sys/kernel/random/uuid)
 SALE=$(curl -sS -X POST "$API/sales" -H "Authorization: Bearer $CTOKEN" -H "x-branch-id: $CBRANCH" \
   -H 'Content-Type: application/json' \
-  -d "{\"idempotencyKey\":\"$KEY\",\"type\":\"POS\",\"items\":[{\"productId\":\"$PID\",\"qty\":2}],\"payments\":[{\"provider\":\"CASH\",\"amount\":24000}]}")
+  -d "{\"idempotencyKey\":\"$KEY\",\"type\":\"POS\",\"items\":[{\"productId\":\"$PID\",\"qty\":2}],\"payments\":[{\"provider\":\"CASH\",\"amount\":$AMT2}]}")
 SID=$(echo "$SALE" | jq -r '.data.id // empty')
 [ -n "$SID" ] && ok "savdo yakunlandi: $SID" || bad "sale: $SALE"
 
@@ -51,7 +55,7 @@ echo "    qoldiq: $QTY0 -> $QTY1"
 echo "== 8. Idempotency (bir xil key) =="
 SALE2=$(curl -sS -X POST "$API/sales" -H "Authorization: Bearer $CTOKEN" -H "x-branch-id: $CBRANCH" \
   -H 'Content-Type: application/json' \
-  -d "{\"idempotencyKey\":\"$KEY\",\"type\":\"POS\",\"items\":[{\"productId\":\"$PID\",\"qty\":2}],\"payments\":[{\"provider\":\"CASH\",\"amount\":24000}]}")
+  -d "{\"idempotencyKey\":\"$KEY\",\"type\":\"POS\",\"items\":[{\"productId\":\"$PID\",\"qty\":2}],\"payments\":[{\"provider\":\"CASH\",\"amount\":$AMT2}]}")
 SID2=$(echo "$SALE2" | jq -r '.data.id // empty')
 [ "$SID" = "$SID2" ] && ok "bir xil savdo qaytdi (takror yo'q)" || bad "idempotency: $SID vs $SID2"
 QTY2=$(curl -sS "$API/products" -H "Authorization: Bearer $CTOKEN" -H "x-branch-id: $CBRANCH" | jq -r ".data[] | select(.id==\"$PID\") | .stocks[0].quantity")
@@ -61,7 +65,7 @@ echo "== 9. Insufficient stock -> E4101 =="
 KEY2=$(cat /proc/sys/kernel/random/uuid)
 ERR=$(curl -sS -X POST "$API/sales" -H "Authorization: Bearer $CTOKEN" -H "x-branch-id: $CBRANCH" \
   -H 'Content-Type: application/json' \
-  -d "{\"idempotencyKey\":\"$KEY2\",\"type\":\"POS\",\"items\":[{\"productId\":\"$PID\",\"qty\":999999}],\"payments\":[{\"provider\":\"CASH\",\"amount\":1}]}")
+  -d "{\"idempotencyKey\":\"$KEY2\",\"type\":\"POS\",\"items\":[{\"productId\":\"$PID\",\"qty\":999999}],\"payments\":[{\"provider\":\"CASH\",\"amount\":$AMTBIG}]}")
 [ "$(echo "$ERR" | jq -r '.error.code')" = "E4101" ] && ok "qoldiq yetmasa E4101" || bad "stock guard: $ERR"
 
 echo "== 10. Dashboard (owner) =="
