@@ -14,7 +14,8 @@ import {
   TeamOutlined,
   WalletOutlined,
 } from '@ant-design/icons';
-import { Layout, Menu, Select, Space, Typography } from 'antd';
+import { Layout, Menu, Select, Space, Spin, Typography } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useBranches } from '../../hooks/useStaff';
@@ -82,12 +83,22 @@ function BranchSelector() {
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, clear } = useAuthStore();
+  const { user, branchId, clear } = useAuthStore();
+  const qc = useQueryClient();
+
+  // Tenant-scoped queries send x-branch-id; refetch everything when it changes.
+  useEffect(() => {
+    void qc.invalidateQueries();
+  }, [branchId, qc]);
 
   const logout = () => {
     clear();
     navigate('/login');
   };
+
+  // Block content until a branch is chosen (OWNER picks; others fixed at login),
+  // otherwise tenant-scoped requests would fail with E3001.
+  const branchReady = Boolean(user?.branchId) || Boolean(branchId);
 
   const org = useOrganization();
   const isRestaurant = org.data?.businessType === 'RESTORAN';
@@ -118,7 +129,14 @@ export default function AppLayout() {
           </Space>
         </Header>
         <Content style={{ margin: 24 }}>
-          <Outlet />
+          {branchReady ? (
+            <Outlet />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12, paddingTop: 80 }}>
+              <Spin size="large" />
+              <Typography.Text type="secondary">Filial tanlanmoqda…</Typography.Text>
+            </div>
+          )}
         </Content>
       </Layout>
     </Layout>
