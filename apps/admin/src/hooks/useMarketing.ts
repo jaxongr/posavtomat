@@ -49,6 +49,9 @@ export const useCreateCustomer = () => {
   });
 };
 
-// ── Profit report ──
+// ── Reports ──
 export const useProfit = (from?: string, to?: string) =>
   useQuery({ queryKey: ['profit', from, to], queryFn: () => reportsApi.profit(from, to) });
+
+export const useStaffReport = (from?: string, to?: string) =>
+  useQuery({ queryKey: ['staff-report', from, to], queryFn: () => reportsApi.staff(from, to) });

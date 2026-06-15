@@ -20,6 +20,7 @@ const TablesPage = lazy(() => import('./pages/tables/TablesPage'));
 const OrderPage = lazy(() => import('./pages/order/OrderPage'));
 const KdsPage = lazy(() => import('./pages/kitchen/KdsPage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
+const SuperAdminPage = lazy(() => import('./pages/superadmin/SuperAdminPage'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="/order/:tableId" element={<OrderPage />} />
           <Route path="/kds" element={<KdsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/superadmin" element={<SuperAdminPage />} />
         </Route>
         <Route path="*" element={<RoleHome />} />
       </Routes>

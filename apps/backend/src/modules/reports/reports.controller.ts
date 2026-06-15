@@ -35,4 +35,11 @@ export class ReportsController {
   profit(@Query('from') from: string, @Query('to') to: string, @Tenant() ctx: TenantContext) {
     return this.reports.profit(from, to, ctx);
   }
+
+  @Get('staff')
+  @Roles(Role.OWNER, Role.MANAGER)
+  @ApiOperation({ summary: 'Hodimlar bo‘yicha savdo hisoboti' })
+  staffSales(@Query('from') from: string, @Query('to') to: string, @Tenant() ctx: TenantContext) {
+    return this.reports.staffSales(from, to, ctx);
+  }
 }

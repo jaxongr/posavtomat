@@ -29,6 +29,7 @@ export const ERROR_CODES = {
   E1001: 'Unauthorized',
   E1002: 'Forbidden (RBAC)',
   E1003: 'Token expired',
+  E1004: 'Subscription expired',
   // Generic
   E2001: 'Resource not found',
   E2002: 'Already exists',

@@ -12,6 +12,19 @@ export const useBranches = () => {
   return useQuery({ queryKey: ['branches', orgId], queryFn: orgApi.branches, enabled: Boolean(orgId) });
 };
 
+export const useCreateBranch = () => {
+  const qc = useQueryClient();
+  const { message } = App.useApp();
+  return useMutation({
+    mutationFn: orgApi.createBranch,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['branches'] });
+      message.success('Filial qo‘shildi');
+    },
+    onError: (e) => message.error(apiErrorMessage(e)),
+  });
+};
+
 export const useCreateStaff = () => {
   const qc = useQueryClient();
   const { message } = App.useApp();

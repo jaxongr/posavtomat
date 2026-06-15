@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { BusinessException } from '../../common/exceptions/business.exception';
+import { canSell } from '../../common/subscription';
 import { Money } from '../../common/money/money';
 import { Quantity } from '../../common/money/quantity';
 import { AuthUser, TenantContext } from '../../common/types/auth.types';
@@ -51,6 +52,7 @@ export class SalesService {
    * rolls the whole sale back (E4101).
    */
   async create(dto: CreateSaleDto, user: AuthUser, ctx: TenantContext) {
+    await this.assertSubscription(ctx);
     // 1. Idempotency — return the existing sale if this key was already used.
     const existing = await this.prisma.sale.findUnique({
       where: { organizationId_idempotencyKey: { organizationId: ctx.orgId, idempotencyKey: dto.idempotencyKey } },
@@ -137,19 +139,9 @@ export class SalesService {
           await this.deductForLine(tx, line, ctx, created.id);
         }
 
-        // Restaurant: send order to the kitchen (KOT) and occupy the table.
+        // Restaurant: send cooked dishes to the kitchen (KOT) and occupy the table.
         if (dto.type === SaleType.DINE_IN || dto.type === SaleType.TAKEAWAY) {
-          await tx.kot.create({
-            data: {
-              saleId: created.id,
-              items: lines.map((l) => ({
-                productId: l.productId,
-                name: l.productName,
-                qty: l.qty.toNumber(),
-                modifiers: l.modifiers,
-              })) as unknown as Prisma.InputJsonValue,
-            },
-          });
+          await this.createKot(tx, created.id, lines);
           if (dto.tableId) {
             await tx.diningTable.updateMany({
               where: { id: dto.tableId, organizationId: ctx.orgId, branchId: ctx.branchId },
@@ -306,8 +298,20 @@ export class SalesService {
 
   // ═══════════════ RESTAURANT ORDER LIFECYCLE (pay-later) ═══════════════
 
+  /** Throws E1004 if the organization's subscription is fully expired (past grace). */
+  private async assertSubscription(ctx: TenantContext): Promise<void> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: ctx.orgId },
+      select: { subscriptionEndsAt: true },
+    });
+    if (org && !canSell(org.subscriptionEndsAt)) {
+      throw new BusinessException('E1004', 'Obuna muddati tugagan. Iltimos, obunani yangilang.');
+    }
+  }
+
   /** Open order for a table with items. Status OPEN, not paid. Sends a KOT. */
   async openOrder(dto: OpenOrderDto, user: AuthUser, ctx: TenantContext) {
+    await this.assertSubscription(ctx);
     const existing = await this.prisma.sale.findFirst({
       where: { tableId: dto.tableId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
       select: { id: true },
@@ -519,12 +523,20 @@ export class SalesService {
     return { id: order.id, status: 'CANCELLED' };
   }
 
-  /** Build a KOT snapshot from priced lines. */
+  /**
+   * Build a KOT snapshot — only DISH items are cooked, so only they go to the
+   * kitchen screen. Drinks / ready goods (e.g. Cola from the fridge) are on the
+   * bill and deducted from stock, but never appear on the KDS. No dishes → no KOT.
+   */
   private async createKot(tx: Prisma.TransactionClient, saleId: string, lines: PricedLine[]): Promise<void> {
+    const kitchenLines = lines.filter((l) => l.productType === ProductType.DISH);
+    if (kitchenLines.length === 0) {
+      return;
+    }
     await tx.kot.create({
       data: {
         saleId,
-        items: lines.map((l) => ({
+        items: kitchenLines.map((l) => ({
           productId: l.productId,
           name: l.productName,
           qty: l.qty.toNumber(),

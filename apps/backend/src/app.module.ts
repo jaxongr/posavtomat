@@ -25,6 +25,7 @@ import { TablesModule } from './modules/tables/tables.module';
 import { RecipesModule } from './modules/recipes/recipes.module';
 import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { OrganizationModule } from './modules/organization/organization.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -51,6 +52,7 @@ import { HealthModule } from './modules/health/health.module';
     RecipesModule,
     KitchenModule,
     OrganizationModule,
+    AdminModule,
     HealthModule,
   ],
   providers: [

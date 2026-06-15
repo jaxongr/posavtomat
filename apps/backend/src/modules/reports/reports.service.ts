@@ -119,6 +119,38 @@ export class ReportsService {
     };
   }
 
+  /** Per-staff sales performance over a date range. */
+  async staffSales(fromIso: string | undefined, toIso: string | undefined, ctx: TenantContext) {
+    const to = toIso ? new Date(toIso) : new Date();
+    const from = fromIso ? new Date(fromIso) : new Date(to.getTime() - 30 * 24 * 3600 * 1000);
+
+    const grouped = await this.prisma.sale.groupBy({
+      by: ['staffId'],
+      where: {
+        organizationId: ctx.orgId,
+        branchId: ctx.branchId,
+        status: SaleStatus.COMPLETED,
+        completedAt: { gte: from, lte: to },
+      },
+      _sum: { total: true },
+      _count: { _all: true },
+    });
+    const staff = await this.prisma.staff.findMany({
+      where: { id: { in: grouped.map((g) => g.staffId) } },
+      select: { id: true, fish: true, role: true },
+    });
+    const byId = new Map(staff.map((s) => [s.id, s]));
+    return grouped
+      .map((g) => ({
+        staffId: g.staffId,
+        fish: byId.get(g.staffId)?.fish ?? '—',
+        role: byId.get(g.staffId)?.role ?? null,
+        salesCount: g._count._all,
+        total: Money.of(g._sum.total ?? 0).toString(),
+      }))
+      .sort((a, b) => Number(b.total) - Number(a.total));
+  }
+
   /** Sales history (cursor-paginated). */
   async sales(query: PaginationDto, ctx: TenantContext) {
     const rows = await this.prisma.sale.findMany({

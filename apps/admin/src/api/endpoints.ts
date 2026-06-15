@@ -27,11 +27,21 @@ export interface ReceiptConfig {
   showCashier?: boolean;
 }
 
+export interface Subscription {
+  state: 'active' | 'grace' | 'expired';
+  daysLeft: number | null;
+  endsAt: string | null;
+}
+
 export interface Organization {
   id: string;
   name: string;
   businessType: 'DOKON' | 'RESTORAN';
   settings: { receipt?: ReceiptConfig } & Record<string, unknown>;
+  plan?: string;
+  subscriptionPrice?: string;
+  subscriptionEndsAt?: string | null;
+  subscription?: Subscription;
 }
 
 export const orgApi = {
@@ -39,6 +49,37 @@ export const orgApi = {
   organization: () => api.get<{ data: Organization }>('/organization').then((r) => r.data.data),
   update: (body: { name?: string; receipt?: ReceiptConfig }) =>
     api.patch<{ data: Organization }>('/organization', body).then((r) => r.data.data),
+  createBranch: (body: { name: string; address?: string }) =>
+    api.post<{ data: Branch }>('/branches', body).then((r) => r.data.data),
+};
+
+export interface AdminOrg {
+  id: string;
+  name: string;
+  businessType: 'DOKON' | 'RESTORAN';
+  active: boolean;
+  plan: string;
+  subscriptionPrice: string;
+  subscriptionEndsAt: string | null;
+  subscription: Subscription;
+  _count: { branches: number; staff: number; sales: number };
+}
+
+export const adminApi = {
+  organizations: () => api.get<{ data: AdminOrg[] }>('/admin/organizations').then((r) => r.data.data),
+  createBusiness: (body: {
+    name: string;
+    businessType: string;
+    ownerFish: string;
+    ownerPhone: string;
+    ownerPassword: string;
+    plan?: string;
+    price?: number;
+    days?: number;
+  }) => api.post('/admin/organizations', body).then((r) => r.data.data),
+  setSubscription: (id: string, body: { plan?: string; price?: number; addDays?: number }) =>
+    api.patch(`/admin/organizations/${id}/subscription`, body).then((r) => r.data.data),
+  toggle: (id: string) => api.patch(`/admin/organizations/${id}/toggle`).then((r) => r.data.data),
 };
 
 export interface DiningTable {
@@ -169,6 +210,13 @@ export const reportsApi = {
     api.get<Page<SaleListRow>>('/reports/sales', { params }).then((r) => r.data),
   profit: (from?: string, to?: string) =>
     api.get<{ data: ProfitReport }>('/reports/profit', { params: { from, to } }).then((r) => r.data.data),
+  staff: (from?: string, to?: string) =>
+    api
+      .get<{ data: { staffId: string; fish: string; role: string | null; salesCount: number; total: string }[] }>(
+        '/reports/staff',
+        { params: { from, to } },
+      )
+      .then((r) => r.data.data),
 };
 
 export interface Discount {

@@ -1,0 +1,156 @@
+import { Body, Controller, Get, Module, Param, ParseUUIDPipe, Patch, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { BusinessType, Prisma, Role } from '@prisma/client';
+import { IsEnum, IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { hashSecret } from '../../common/crypto/hash.util';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { BusinessException } from '../../common/exceptions/business.exception';
+import { Money } from '../../common/money/money';
+import { subscriptionStatus } from '../../common/subscription';
+import { AuthUser } from '../../common/types/auth.types';
+import { PrismaService } from '../../prisma/prisma.service';
+
+class CreateBusinessDto {
+  @ApiProperty({ example: 'Yangi Do‘kon' })
+  @IsString() @MinLength(2)
+  name!: string;
+
+  @ApiProperty({ enum: BusinessType })
+  @IsEnum(BusinessType)
+  businessType!: BusinessType;
+
+  @ApiProperty({ example: 'Egasi F.I.Sh.' })
+  @IsString() @MinLength(2)
+  ownerFish!: string;
+
+  @ApiProperty({ example: '+998901234567' })
+  @IsString()
+  ownerPhone!: string;
+
+  @ApiProperty({ example: 'parol123' })
+  @IsString() @MinLength(6)
+  ownerPassword!: string;
+
+  @ApiPropertyOptional({ example: 'Standart' })
+  @IsOptional() @IsString()
+  plan?: string;
+
+  @ApiPropertyOptional({ example: 300000, description: 'Oylik obuna narxi' })
+  @IsOptional() @IsNumber()
+  price?: number;
+
+  @ApiPropertyOptional({ example: 30, description: 'Obuna muddati (kun)' })
+  @IsOptional() @IsInt() @Min(0)
+  days?: number;
+}
+
+class SubscriptionDto {
+  @ApiPropertyOptional() @IsOptional() @IsString()
+  plan?: string;
+
+  @ApiPropertyOptional({ description: 'Oylik narx' }) @IsOptional() @IsNumber() @Min(0)
+  price?: number;
+
+  @ApiPropertyOptional({ description: 'Muddatni shu kunga uzaytirish (joriy tugashdan)' })
+  @IsOptional() @IsInt() @Min(0)
+  addDays?: number;
+}
+
+const DAY_MS = 86_400_000;
+
+@ApiTags('admin')
+@ApiBearerAuth()
+@UseGuards(JwtAuthGuard)
+@Roles(Role.SUPERADMIN)
+@Controller('admin')
+class AdminController {
+  constructor(private readonly prisma: PrismaService) {}
+
+  @Get('organizations')
+  @ApiOperation({ summary: 'Barcha bizneslar + obuna holati' })
+  async list() {
+    const orgs = await this.prisma.organization.findMany({
+      where: { deletedAt: null },
+      select: {
+        id: true, name: true, businessType: true, active: true,
+        plan: true, subscriptionPrice: true, subscriptionEndsAt: true, createdAt: true,
+        _count: { select: { branches: true, staff: true, sales: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return orgs.map((o) => ({ ...o, subscription: subscriptionStatus(o.subscriptionEndsAt) }));
+  }
+
+  @Post('organizations')
+  @ApiOperation({ summary: 'Yangi biznes yaratish (tashkilot + egasi + filial)' })
+  async create(@Body() dto: CreateBusinessDto) {
+    const exists = await this.prisma.staff.findFirst({ where: { phone: dto.ownerPhone, deletedAt: null }, select: { id: true } });
+    if (exists) {
+      throw new BusinessException('E2002', 'Bu telefon raqami band');
+    }
+    const endsAt = dto.days ? new Date(Date.now() + dto.days * DAY_MS) : null;
+    return this.prisma.$transaction(async (tx) => {
+      const org = await tx.organization.create({
+        data: {
+          name: dto.name,
+          businessType: dto.businessType,
+          plan: dto.plan ?? 'Standart',
+          subscriptionPrice: Money.of(dto.price ?? 0).toPrisma(),
+          subscriptionEndsAt: endsAt,
+        },
+      });
+      const branch = await tx.branch.create({ data: { organizationId: org.id, name: 'Asosiy filial' } });
+      await tx.register.create({ data: { organizationId: org.id, branchId: branch.id, name: 'Kassa 1' } });
+      await tx.staff.create({
+        data: {
+          organizationId: org.id,
+          fish: dto.ownerFish,
+          phone: dto.ownerPhone,
+          role: Role.OWNER,
+          passwordHash: await hashSecret(dto.ownerPassword),
+        },
+      });
+      return { ...org, subscription: subscriptionStatus(endsAt) };
+    });
+  }
+
+  @Patch('organizations/:id/subscription')
+  @ApiOperation({ summary: 'Obunani belgilash/uzaytirish (narx + muddat)' })
+  async setSubscription(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SubscriptionDto) {
+    const org = await this.prisma.organization.findUnique({ where: { id }, select: { subscriptionEndsAt: true } });
+    if (!org) {
+      throw new BusinessException('E2001', 'Biznes topilmadi');
+    }
+    const base = org.subscriptionEndsAt && org.subscriptionEndsAt.getTime() > Date.now() ? org.subscriptionEndsAt.getTime() : Date.now();
+    const endsAt = dto.addDays ? new Date(base + dto.addDays * DAY_MS) : org.subscriptionEndsAt;
+    const updated = await this.prisma.organization.update({
+      where: { id },
+      data: {
+        ...(dto.plan ? { plan: dto.plan } : {}),
+        ...(dto.price !== undefined ? { subscriptionPrice: Money.of(dto.price).toPrisma() } : {}),
+        ...(dto.addDays ? { subscriptionEndsAt: endsAt } : {}),
+      } as Prisma.OrganizationUpdateInput,
+      select: { id: true, name: true, plan: true, subscriptionPrice: true, subscriptionEndsAt: true },
+    });
+    return { ...updated, subscription: subscriptionStatus(updated.subscriptionEndsAt) };
+  }
+
+  @Patch('organizations/:id/toggle')
+  @ApiOperation({ summary: 'Biznesni faollashtirish/o‘chirish' })
+  async toggle(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() _admin: AuthUser) {
+    const org = await this.prisma.organization.findUnique({ where: { id }, select: { active: true } });
+    if (!org) {
+      throw new BusinessException('E2001', 'Biznes topilmadi');
+    }
+    return this.prisma.organization.update({
+      where: { id },
+      data: { active: !org.active },
+      select: { id: true, active: true },
+    });
+  }
+}
+
+@Module({ controllers: [AdminController] })
+export class AdminModule {}

@@ -2,13 +2,15 @@ import { Card, Col, DatePicker, Row, Statistic, Table, Typography } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useState } from 'react';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
-import { useProfit } from '../../hooks/useMarketing';
+import { useProfit, useStaffReport } from '../../hooks/useMarketing';
+import { ROLE_LABELS, type Role } from '../../types';
 
 const { RangePicker } = DatePicker;
 
 export default function ReportsPage() {
   const [range, setRange] = useState<[Dayjs, Dayjs]>([dayjs().subtract(30, 'day'), dayjs()]);
   const query = useProfit(range[0].toISOString(), range[1].toISOString());
+  const staffQ = useStaffReport(range[0].toISOString(), range[1].toISOString());
 
   const columns = [
     { title: 'Mahsulot', dataIndex: 'name' },
@@ -44,6 +46,24 @@ export default function ReportsPage() {
           </>
         )}
       </QueryBoundary>
+
+      <Card title="Hodimlar bo‘yicha savdo" style={{ marginTop: 16 }}>
+        <QueryBoundary isLoading={staffQ.isLoading} error={staffQ.error} data={staffQ.data} isEmpty={(d) => d.length === 0}>
+          {(rows) => (
+            <Table
+              rowKey="staffId"
+              dataSource={rows}
+              pagination={false}
+              columns={[
+                { title: 'Hodim', dataIndex: 'fish' },
+                { title: 'Rol', dataIndex: 'role', render: (v: Role | null) => (v ? (ROLE_LABELS[v] ?? v) : '—') },
+                { title: 'Cheklar', dataIndex: 'salesCount' },
+                { title: 'Savdo summasi', dataIndex: 'total', render: (v: string) => `${Number(v).toLocaleString()} so‘m` },
+              ]}
+            />
+          )}
+        </QueryBoundary>
+      </Card>
     </>
   );
 }

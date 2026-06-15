@@ -1,7 +1,9 @@
-import { Button, Card, Divider, Form, Input, Select, Space, Switch, Typography } from 'antd';
-import { useEffect } from 'react';
+import { Button, Card, Divider, Form, Input, List, Select, Space, Switch, Typography } from 'antd';
+import { useEffect, useState } from 'react';
 import { printReceipt } from '../../utils/receipt';
 import { useOrganization, useUpdateOrg } from '../../hooks/useRestaurant';
+import { useBranches, useCreateBranch } from '../../hooks/useStaff';
+import { useAuthStore } from '../../store/auth.store';
 import { useSettings } from '../../store/settings.store';
 
 export default function SettingsPage() {
@@ -9,7 +11,17 @@ export default function SettingsPage() {
   const update = useUpdateOrg();
   const autoPrint = useSettings((s) => s.autoPrint);
   const setAutoPrint = useSettings((s) => s.setAutoPrint);
+  const isOwner = useAuthStore((s) => s.user?.role) === 'OWNER';
+  const branches = useBranches();
+  const createBranch = useCreateBranch();
+  const [newBranch, setNewBranch] = useState('');
   const [form] = Form.useForm();
+
+  const addBranch = async () => {
+    if (!newBranch.trim()) return;
+    await createBranch.mutateAsync({ name: newBranch.trim() });
+    setNewBranch('');
+  };
 
   const receipt = org.data?.settings?.receipt;
 
@@ -97,6 +109,21 @@ export default function SettingsPage() {
           <Switch checked={autoPrint} onChange={setAutoPrint} />
         </Space>
       </Card>
+
+      {isOwner && (
+        <Card title="Filiallar" style={{ maxWidth: 560, marginTop: 16 }}>
+          <List
+            size="small"
+            dataSource={branches.data ?? []}
+            locale={{ emptyText: 'Filial yo‘q' }}
+            renderItem={(b) => <List.Item>{b.name}{b.address ? ` — ${b.address}` : ''}</List.Item>}
+          />
+          <Space style={{ marginTop: 12, width: '100%' }}>
+            <Input placeholder="Yangi filial nomi" value={newBranch} onChange={(e) => setNewBranch(e.target.value)} />
+            <Button type="primary" loading={createBranch.isPending} onClick={addBranch}>Qo‘shish</Button>
+          </Space>
+        </Card>
+      )}
     </>
   );
 }

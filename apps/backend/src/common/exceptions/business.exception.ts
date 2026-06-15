@@ -6,6 +6,7 @@ const STATUS_BY_CODE: Record<ErrorCode, HttpStatus> = {
   E1001: HttpStatus.UNAUTHORIZED,
   E1002: HttpStatus.FORBIDDEN,
   E1003: HttpStatus.UNAUTHORIZED,
+  E1004: HttpStatus.PAYMENT_REQUIRED,
   E2001: HttpStatus.NOT_FOUND,
   E2002: HttpStatus.CONFLICT,
   E2003: HttpStatus.UNPROCESSABLE_ENTITY,

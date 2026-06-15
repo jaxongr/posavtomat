@@ -59,6 +59,10 @@ async function ensureRecipe(dishProductId, items) {
 }
 
 async function main() {
+  // ═══════════════════ PLATFORMA (super-admin) ═══════════════════
+  const platform = await ensureOrg(uid(900), 'SAVDO-POS Platform', 'DOKON', '#111827');
+  await ensureStaff(uid(910), platform.id, null, 'Super Admin', 'SUPERADMIN', '+998900000000', 'superadmin123', null);
+
   // ═══════════════════ DOKON ═══════════════════
   const org = await ensureOrg(uid(1), 'Demo Do‘kon', 'DOKON', '#0EA5E9');
   const branch = await ensureBranch(uid(10), org.id, 'Markaziy filial');

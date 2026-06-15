@@ -1,5 +1,6 @@
 import {
   AppstoreOutlined,
+  BankOutlined,
   BarChartOutlined,
   CoffeeOutlined,
   DashboardOutlined,
@@ -15,7 +16,7 @@ import {
   TeamOutlined,
   WalletOutlined,
 } from '@ant-design/icons';
-import { Layout, Menu, Select, Space, Spin, Typography } from 'antd';
+import { Alert, Layout, Menu, Select, Space, Spin, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -35,6 +36,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
+  { key: '/superadmin', icon: <BankOutlined />, label: 'Bizneslar', roles: ['SUPERADMIN'] },
   { key: '/', icon: <DashboardOutlined />, label: 'Boshqaruv', roles: ['OWNER', 'MANAGER'] },
   { key: '/tables', icon: <CoffeeOutlined />, label: 'Zal', roles: ['OWNER', 'MANAGER', 'WAITER'], restaurantOnly: true },
   { key: '/kds', icon: <FireOutlined />, label: 'Oshxona', roles: ['OWNER', 'MANAGER', 'COOK', 'WAITER'], restaurantOnly: true },
@@ -58,8 +60,9 @@ export function allowedRoutes(role: AuthUser['role']): string[] {
 
 function BranchSelector() {
   const { user, branchId, setBranch } = useAuthStore();
-  // Only multi-branch users (no fixed branch, e.g. OWNER) pick a branch.
-  const needsPicker = !user?.branchId;
+  // Only multi-branch business users (no fixed branch, e.g. OWNER) pick a branch.
+  // Super-admin operates globally and needs no branch.
+  const needsPicker = !user?.branchId && user?.role !== 'SUPERADMIN';
   const branches = useBranches();
 
   useEffect(() => {
@@ -104,11 +107,12 @@ export default function AppLayout() {
   };
 
   // Block content until a branch is chosen (OWNER picks; others fixed at login),
-  // otherwise tenant-scoped requests would fail with E3001.
-  const branchReady = Boolean(user?.branchId) || Boolean(branchId);
+  // otherwise tenant-scoped requests would fail with E3001. Super-admin needs none.
+  const branchReady = user?.role === 'SUPERADMIN' || Boolean(user?.branchId) || Boolean(branchId);
 
   const org = useOrganization();
   const isRestaurant = org.data?.businessType === 'RESTORAN';
+  const sub = org.data?.subscription;
   const items = NAV.filter(
     (n) => (user ? n.roles.includes(user.role) : false) && (!n.restaurantOnly || isRestaurant),
   ).map((n) => ({
@@ -135,6 +139,18 @@ export default function AppLayout() {
             <Typography.Text type="secondary">{user?.fish} — {user ? ROLE_LABELS[user.role] : ''}</Typography.Text>
           </Space>
         </Header>
+        {sub && sub.state !== 'active' && user?.role !== 'SUPERADMIN' && (
+          <Alert
+            banner
+            type={sub.state === 'expired' ? 'error' : 'warning'}
+            showIcon
+            message={
+              sub.state === 'expired'
+                ? 'Obuna muddati tugagan — savdo to‘xtatildi. Iltimos, obunani yangilang.'
+                : `Obuna muddati tugayapti${sub.daysLeft !== null ? ` (${sub.daysLeft} kun)` : ''} — iltimos, yangilang.`
+            }
+          />
+        )}
         <Content style={{ margin: 24 }}>
           {branchReady ? (
             <Outlet />
