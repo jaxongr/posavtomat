@@ -6,7 +6,9 @@ import { apiErrorMessage } from '../../api/client';
 import { ordersApi } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
+import { useSettings } from '../../store/settings.store';
 import type { Product } from '../../types';
+import { printReceipt } from '../../utils/receipt';
 
 export default function OrderPage() {
   const { tableId = '' } = useParams();
@@ -16,6 +18,7 @@ export default function OrderPage() {
   const qc = useQueryClient();
   const { message, modal } = App.useApp();
 
+  const autoPrint = useSettings((s) => s.autoPrint);
   const products = useProducts({});
   const orderQ = useQuery({ queryKey: ['order', tableId], queryFn: () => ordersApi.byTable(tableId), enabled: Boolean(tableId) });
   const order = orderQ.data;
@@ -66,6 +69,27 @@ export default function OrderPage() {
     setPaying(true);
     try {
       await ordersApi.pay(order.id, [{ provider, amount: Number(order.total) }]);
+      const receipt = {
+        shopName: 'SAVDO-POS',
+        receiptNo: order.id.slice(0, 8),
+        lines: order.items.map((it) => ({ name: it.product.name, qty: Number(it.qty), price: Number(it.price) })),
+        subtotal: Number(order.subtotal),
+        discount: Number(order.discount),
+        total: Number(order.total),
+        provider,
+        tableName,
+        dateTime: new Date().toLocaleString(),
+      };
+      if (autoPrint) {
+        printReceipt(receipt);
+      } else {
+        modal.confirm({
+          title: 'Chek chop etilsinmi?',
+          okText: 'Ha, chop et',
+          cancelText: 'Yo‘q',
+          onOk: () => printReceipt(receipt),
+        });
+      }
       message.success('Hisob yopildi — stol bo‘shadi');
       void qc.invalidateQueries({ queryKey: ['tables'] });
       void qc.invalidateQueries({ queryKey: ['dashboard'] });

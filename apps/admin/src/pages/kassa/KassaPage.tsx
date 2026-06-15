@@ -1,4 +1,4 @@
-import { App, Button, Card, Col, Empty, Input, InputNumber, List, Radio, Row, Space, Statistic, Typography } from 'antd';
+import { App, Button, Card, Col, Empty, Input, InputNumber, List, Radio, Row, Space, Statistic, Switch, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -7,7 +7,10 @@ import { salesApi } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
 import { useCurrentShift, useOpenShift } from '../../hooks/useShift';
+import { useAuthStore } from '../../store/auth.store';
+import { useSettings } from '../../store/settings.store';
 import type { Product } from '../../types';
+import { printReceipt } from '../../utils/receipt';
 import { uuidv4 } from '../../utils/uuid';
 
 interface Line {
@@ -20,7 +23,10 @@ export default function KassaPage() {
   const { data: shift } = useCurrentShift();
   const openShift = useOpenShift();
   const qc = useQueryClient();
-  const { message } = App.useApp();
+  const { message, modal } = App.useApp();
+  const autoPrint = useSettings((s) => s.autoPrint);
+  const setAutoPrint = useSettings((s) => s.setAutoPrint);
+  const user = useAuthStore((s) => s.user);
 
   const [params] = useSearchParams();
   const tableId = params.get('table') ?? undefined;
@@ -64,16 +70,40 @@ export default function KassaPage() {
     if (!lines.length) return;
     setPaying(true);
     try {
-      await salesApi.create({
+      const sale = await salesApi.create({
         idempotencyKey: uuidv4(),
         type: tableId ? 'DINE_IN' : 'POS',
         ...(tableId ? { tableId } : {}),
         items: lines.map((l) => ({ productId: l.product.id, qty: l.qty })),
         payments: [{ provider, amount: total }],
       });
+      const receipt = {
+        shopName: 'SAVDO-POS',
+        receiptNo: sale.id.slice(0, 8),
+        lines: lines.map((l) => ({ name: l.product.name, qty: l.qty, price: Number(l.product.price) })),
+        subtotal: total,
+        discount: 0,
+        total,
+        provider,
+        paid: provider === 'CASH' && tendered ? tendered : total,
+        change: provider === 'CASH' && tendered > total ? tendered - total : 0,
+        cashier: user?.fish,
+        dateTime: new Date().toLocaleString(),
+      };
       setLines([]);
       setTendered(0);
       message.success('Savdo yakunlandi');
+      // Auto-print, or ask if disabled.
+      if (autoPrint) {
+        printReceipt(receipt);
+      } else {
+        modal.confirm({
+          title: 'Chek chop etilsinmi?',
+          okText: 'Ha, chop et',
+          cancelText: 'Yo‘q',
+          onOk: () => printReceipt(receipt),
+        });
+      }
       void qc.invalidateQueries({ queryKey: ['shift'] });
       void qc.invalidateQueries({ queryKey: ['dashboard'] });
       void qc.invalidateQueries({ queryKey: ['products'] });
@@ -189,6 +219,10 @@ export default function KassaPage() {
             <Button block disabled={!lines.length} onClick={() => setLines([])}>
               Tozalash
             </Button>
+            <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+              <Typography.Text type="secondary">Chekni avto chop etish</Typography.Text>
+              <Switch checked={autoPrint} onChange={setAutoPrint} />
+            </Space>
           </Space>
         </Card>
       </Col>
