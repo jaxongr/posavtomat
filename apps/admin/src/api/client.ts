@@ -46,8 +46,9 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError<ApiErrorBody>) => {
     const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-    const code = error.response?.data?.error?.code;
-    if (error.response?.status === 401 && code === 'E1003' && original && !original._retry) {
+    const isAuthCall = original?.url?.includes('/auth/');
+    // Any 401 (expired/invalid access token) → try a single refresh, then retry.
+    if (error.response?.status === 401 && original && !original._retry && !isAuthCall) {
       original._retry = true;
       refreshing = refreshing ?? refreshAccess();
       const token = await refreshing;
@@ -55,6 +56,11 @@ api.interceptors.response.use(
       if (token) {
         original.headers.set('Authorization', `Bearer ${token}`);
         return api(original);
+      }
+      // Refresh failed → session over, back to login.
+      useAuthStore.getState().clear();
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
       }
     }
     return Promise.reject(error);
