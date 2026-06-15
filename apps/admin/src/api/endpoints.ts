@@ -56,6 +56,30 @@ export const kitchenApi = {
     api.patch<{ data: Kot }>(`/kitchen/kots/${id}/status`, { status }).then((r) => r.data.data),
 };
 
+export interface Order {
+  id: string;
+  status: string;
+  paidStatus: string;
+  subtotal: string;
+  discount: string;
+  total: string;
+  tableId: string | null;
+  items: { id: string; productId: string; qty: string; price: string; product: { name: string } }[];
+  kots?: { id: string; status: string }[];
+}
+
+export const ordersApi = {
+  byTable: (tableId: string) =>
+    api.get<{ data: Order | null }>(`/orders/by-table/${tableId}`).then((r) => r.data.data),
+  open: (body: { tableId: string; items: { productId: string; qty: number }[] }) =>
+    api.post<{ data: Order }>('/orders', body).then((r) => r.data.data),
+  addItems: (id: string, items: { productId: string; qty: number }[]) =>
+    api.post<{ data: Order }>(`/orders/${id}/items`, { items }).then((r) => r.data.data),
+  pay: (id: string, payments: { provider: 'CASH' | 'CARD'; amount: number }[]) =>
+    api.post<{ data: Order }>(`/orders/${id}/pay`, { payments }).then((r) => r.data.data),
+  cancel: (id: string) => api.post(`/orders/${id}/cancel`).then((r) => r.data),
+};
+
 export interface Recipe {
   id: string;
   dishProductId: string;

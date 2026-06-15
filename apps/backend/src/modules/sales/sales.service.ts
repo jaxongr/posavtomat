@@ -18,6 +18,7 @@ import { RedisService } from '../../redis/redis.service';
 import { StockManager } from '../inventory/stock.manager';
 import { ShiftsService } from '../shifts/shifts.service';
 import { CreateSaleDto, SaleItemInputDto } from './dto/create-sale.dto';
+import { AddItemsDto, OpenOrderDto, PayOrderDto } from './dto/order.dto';
 
 interface PricedLine {
   input: SaleItemInputDto;
@@ -301,6 +302,236 @@ export class SalesService {
 
     await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
     return this.findOne(id, ctx);
+  }
+
+  // ═══════════════ RESTAURANT ORDER LIFECYCLE (pay-later) ═══════════════
+
+  /** Open order for a table with items. Status OPEN, not paid. Sends a KOT. */
+  async openOrder(dto: OpenOrderDto, user: AuthUser, ctx: TenantContext) {
+    const existing = await this.prisma.sale.findFirst({
+      where: { tableId: dto.tableId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
+      select: { id: true },
+    });
+    if (existing) {
+      // Table already has an open order — append instead of opening a new one.
+      return this.addItems(existing.id, { items: dto.items }, user, ctx);
+    }
+
+    const lines = await this.priceLines(dto.items, ctx);
+    let subtotal = Money.zero();
+    for (const l of lines) subtotal = subtotal.add(l.lineTotal.toString());
+    const discount = await this.resolveDiscount(dto.promoCode, subtotal, ctx);
+    const total = subtotal.subtract(discount.toString());
+
+    const order = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.sale.create({
+        data: {
+          organizationId: ctx.orgId,
+          branchId: ctx.branchId,
+          staffId: user.id,
+          tableId: dto.tableId,
+          type: SaleType.DINE_IN,
+          status: SaleStatus.OPEN,
+          paidStatus: PaidStatus.UNPAID,
+          subtotal: subtotal.toPrisma(),
+          discount: discount.toPrisma(),
+          total: total.toPrisma(),
+          items: {
+            create: lines.map((l) => ({
+              productId: l.productId,
+              variantId: l.input.variantId,
+              qty: l.qty.toPrisma(),
+              price: l.unitPrice.toPrisma(),
+              cost: l.unitCost.toPrisma(),
+              modifiers: l.modifiers as unknown as Prisma.InputJsonValue,
+            })),
+          },
+        },
+      });
+      for (const line of lines) await this.deductForLine(tx, line, ctx, created.id);
+      await this.createKot(tx, created.id, lines);
+      await tx.diningTable.updateMany({
+        where: { id: dto.tableId, organizationId: ctx.orgId, branchId: ctx.branchId },
+        data: { status: 'OCCUPIED' },
+      });
+      return created;
+    });
+    await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
+    return this.getOrder(order.id, ctx);
+  }
+
+  /** Append items to an open order; sends a new KOT; recomputes the total. */
+  async addItems(orderId: string, dto: AddItemsDto, _user: AuthUser, ctx: TenantContext) {
+    const order = await this.prisma.sale.findFirst({
+      where: { id: orderId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
+      include: { items: true },
+    });
+    if (!order) {
+      throw new BusinessException('E2001', 'Ochiq buyurtma topilmadi');
+    }
+    const lines = await this.priceLines(dto.items, ctx);
+
+    await this.prisma.$transaction(async (tx) => {
+      for (const l of lines) {
+        await tx.saleItem.create({
+          data: {
+            saleId: order.id,
+            productId: l.productId,
+            variantId: l.input.variantId,
+            qty: l.qty.toPrisma(),
+            price: l.unitPrice.toPrisma(),
+            cost: l.unitCost.toPrisma(),
+            modifiers: l.modifiers as unknown as Prisma.InputJsonValue,
+          },
+        });
+        await this.deductForLine(tx, l, ctx, order.id);
+      }
+      await this.createKot(tx, order.id, lines);
+
+      // Recompute totals over existing + new items.
+      let subtotal = Money.zero();
+      for (const it of order.items) subtotal = subtotal.add(Money.of(it.price).multiply(it.qty.toString()).toString());
+      for (const l of lines) subtotal = subtotal.add(l.lineTotal.toString());
+      const total = subtotal.subtract(Money.of(order.discount).toString());
+      await tx.sale.update({
+        where: { id: order.id },
+        data: { subtotal: subtotal.toPrisma(), total: total.toPrisma() },
+      });
+    });
+    await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
+    return this.getOrder(order.id, ctx);
+  }
+
+  /** Open order for a table (or null). */
+  async getOpenByTable(tableId: string, ctx: TenantContext) {
+    const order = await this.prisma.sale.findFirst({
+      where: { tableId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
+      include: {
+        items: { include: { product: { select: { name: true } } } },
+        kots: true,
+      },
+    });
+    return order;
+  }
+
+  async getOrder(id: string, ctx: TenantContext) {
+    return this.prisma.sale.findFirst({
+      where: { id, organizationId: ctx.orgId, branchId: ctx.branchId },
+      include: { items: { include: { product: { select: { name: true } } } }, payments: true, kots: true },
+    });
+  }
+
+  /** Close the bill: take payment, complete the order, free the table. */
+  async payOrder(orderId: string, dto: PayOrderDto, user: AuthUser, ctx: TenantContext) {
+    const order = await this.prisma.sale.findFirst({
+      where: { id: orderId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
+    });
+    if (!order) {
+      throw new BusinessException('E2001', 'Ochiq buyurtma topilmadi');
+    }
+    const total = Money.of(order.total);
+    let paid = Money.zero();
+    for (const p of dto.payments) paid = paid.add(p.amount);
+    if (!paid.equals(total.toString())) {
+      throw new BusinessException('E4001', 'To‘lov summasi jami summaga teng emas', {
+        total: total.toString(),
+        paid: paid.toString(),
+      });
+    }
+    const cashTotal = dto.payments
+      .filter((p) => p.provider === PaymentProvider.CASH)
+      .reduce((acc, p) => acc.add(p.amount), Money.zero());
+    const cardTotal = total.subtract(cashTotal.toString());
+
+    await this.prisma.$transaction(async (tx) => {
+      const shift = await this.shifts.requireOpen(tx, user.id, ctx);
+      await tx.payment.createMany({
+        data: dto.payments.map((p) => ({
+          saleId: order.id,
+          provider: p.provider,
+          amount: Money.of(p.amount).toPrisma(),
+          status: PaymentStatus.SUCCESS,
+          idempotencyKey: `${order.id}:${p.provider}:${randomUUID()}`,
+        })),
+      });
+      await tx.sale.update({
+        where: { id: order.id },
+        data: { status: SaleStatus.COMPLETED, paidStatus: PaidStatus.PAID, shiftId: shift.id, completedAt: new Date() },
+      });
+      await tx.shift.update({
+        where: { id: shift.id },
+        data: {
+          totalSales: { increment: total.toPrisma() },
+          cashSales: { increment: cashTotal.toPrisma() },
+          cardSales: { increment: cardTotal.toPrisma() },
+        },
+      });
+      if (order.customerId) {
+        const points = Math.floor(total.toNumber() / 1000);
+        if (points > 0) {
+          await tx.customer.updateMany({
+            where: { id: order.customerId, organizationId: ctx.orgId },
+            data: { loyaltyPoints: { increment: points } },
+          });
+        }
+      }
+      if (order.tableId) {
+        await tx.diningTable.updateMany({
+          where: { id: order.tableId, organizationId: ctx.orgId, branchId: ctx.branchId },
+          data: { status: 'FREE' },
+        });
+      }
+      await tx.auditLog.create({
+        data: { staffId: user.id, action: 'ORDER_PAY', entity: 'Sale', entityId: order.id, newValue: { total: total.toString() } as Prisma.InputJsonValue },
+      });
+    });
+    this.logger.log(`Order paid: ${order.id} total=${total.toString()} branch=${ctx.branchId}`);
+    return this.getOrder(order.id, ctx);
+  }
+
+  /** Cancel an open order: restore stock, free the table. */
+  async cancelOrder(orderId: string, user: AuthUser, ctx: TenantContext) {
+    const order = await this.prisma.sale.findFirst({
+      where: { id: orderId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
+      include: { items: { include: { product: { select: { type: true, trackStock: true } } } } },
+    });
+    if (!order) {
+      throw new BusinessException('E2001', 'Ochiq buyurtma topilmadi');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      for (const item of order.items) {
+        if (item.product.type === ProductType.DISH) {
+          const recipe = await tx.recipe.findUnique({ where: { dishProductId: item.productId }, include: { items: true } });
+          for (const ri of recipe?.items ?? []) {
+            await this.stock.increase(tx, { organizationId: ctx.orgId, branchId: ctx.branchId, productId: ri.ingredientId, qty: Quantity.of(ri.qty).multiply(item.qty.toString()), refType: 'RETURN', refId: order.id }, 'RETURN');
+          }
+        } else if (item.product.trackStock) {
+          await this.stock.increase(tx, { organizationId: ctx.orgId, branchId: ctx.branchId, productId: item.productId, qty: Quantity.of(item.qty), refType: 'RETURN', refId: order.id }, 'RETURN');
+        }
+      }
+      await tx.sale.update({ where: { id: order.id }, data: { status: SaleStatus.CANCELLED } });
+      if (order.tableId) {
+        await tx.diningTable.updateMany({ where: { id: order.tableId, organizationId: ctx.orgId, branchId: ctx.branchId }, data: { status: 'FREE' } });
+      }
+      await tx.auditLog.create({ data: { staffId: user.id, action: 'ORDER_CANCEL', entity: 'Sale', entityId: order.id } });
+    });
+    await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
+    return { id: order.id, status: 'CANCELLED' };
+  }
+
+  /** Build a KOT snapshot from priced lines. */
+  private async createKot(tx: Prisma.TransactionClient, saleId: string, lines: PricedLine[]): Promise<void> {
+    await tx.kot.create({
+      data: {
+        saleId,
+        items: lines.map((l) => ({
+          productId: l.productId,
+          name: l.productName,
+          qty: l.qty.toNumber(),
+          modifiers: l.modifiers,
+        })) as unknown as Prisma.InputJsonValue,
+      },
+    });
   }
 
   // ─────────────────────── helpers ───────────────────────

@@ -2,7 +2,7 @@ import { Button, Card, Col, Form, Input, InputNumber, Modal, Row, Space, Tag, Ty
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
-import { useCreateTable, useSetTableStatus, useTables } from '../../hooks/useRestaurant';
+import { useCreateTable, useTables } from '../../hooks/useRestaurant';
 import type { DiningTable } from '../../api/endpoints';
 
 const statusMeta: Record<string, { color: string; label: string }> = {
@@ -14,7 +14,6 @@ const statusMeta: Record<string, { color: string; label: string }> = {
 export default function TablesPage() {
   const query = useTables();
   const create = useCreateTable();
-  const setStatus = useSetTableStatus();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
@@ -26,12 +25,9 @@ export default function TablesPage() {
     form.resetFields();
   };
 
+  // Both free and occupied tables open the order screen (open / bill there).
   const onTableClick = (t: DiningTable) => {
-    if (t.status === 'FREE') {
-      navigate(`/kassa?table=${t.id}&tableName=${encodeURIComponent(t.name)}`);
-    } else {
-      setStatus.mutate({ id: t.id, status: 'FREE' });
-    }
+    navigate(`/order/${t.id}?name=${encodeURIComponent(t.name)}`);
   };
 
   return (
@@ -57,7 +53,7 @@ export default function TablesPage() {
                     <Typography.Text type="secondary">{t.zone ?? '—'} · {t.seats} o‘rin</Typography.Text>
                     <div style={{ marginTop: 8 }}><Tag color={m.color}>{m.label}</Tag></div>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      {t.status === 'FREE' ? 'Buyurtma uchun bosing' : 'Bo‘shatish uchun bosing'}
+                      {t.status === 'FREE' ? 'Buyurtma ochish' : 'Hisob / qo‘shish'}
                     </Typography.Text>
                   </Card>
                 </Col>

@@ -17,6 +17,7 @@ const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const DiscountsPage = lazy(() => import('./pages/discounts/DiscountsPage'));
 const CustomersPage = lazy(() => import('./pages/customers/CustomersPage'));
 const TablesPage = lazy(() => import('./pages/tables/TablesPage'));
+const OrderPage = lazy(() => import('./pages/order/OrderPage'));
 const KdsPage = lazy(() => import('./pages/kitchen/KdsPage'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/discounts" element={<DiscountsPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/tables" element={<TablesPage />} />
+          <Route path="/order/:tableId" element={<OrderPage />} />
           <Route path="/kds" element={<KdsPage />} />
         </Route>
         <Route path="*" element={<RoleHome />} />
