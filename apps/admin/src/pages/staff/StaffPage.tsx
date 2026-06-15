@@ -4,7 +4,9 @@ import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useBranches, useCreateStaff, useDeactivateStaff, useStaff } from '../../hooks/useStaff';
 import { ROLE_LABELS, type Role, type Staff } from '../../types';
 
-const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((r) => ({ value: r, label: ROLE_LABELS[r] }));
+const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[])
+  .filter((r) => r !== 'SUPERADMIN')
+  .map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
 export default function StaffPage() {
   const staff = useStaff();

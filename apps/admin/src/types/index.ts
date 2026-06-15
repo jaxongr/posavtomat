@@ -1,6 +1,7 @@
-export type Role = 'OWNER' | 'MANAGER' | 'CASHIER' | 'SELLER' | 'WAITER' | 'COOK' | 'STOCKKEEPER';
+export type Role = 'SUPERADMIN' | 'OWNER' | 'MANAGER' | 'CASHIER' | 'SELLER' | 'WAITER' | 'COOK' | 'STOCKKEEPER';
 
 export const ROLE_LABELS: Record<Role, string> = {
+  SUPERADMIN: 'Super-admin',
   OWNER: 'Egasi',
   MANAGER: 'Menejer',
   CASHIER: 'Kassir',
