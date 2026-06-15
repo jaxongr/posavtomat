@@ -40,7 +40,7 @@ export function printReceipt(d: ReceiptData): void {
     .join('');
 
   const widthPx = d.width === '58' ? 210 : 280;
-  const head = [d.address, d.phone].filter(Boolean).map(escapeHtml).join('<br>');
+  const head = [d.address, d.phone].filter((x): x is string => !!x).map(escapeHtml).join('<br>');
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Chek ${d.receiptNo}</title>
   <style>
     * { font-family: 'Courier New', monospace; }
