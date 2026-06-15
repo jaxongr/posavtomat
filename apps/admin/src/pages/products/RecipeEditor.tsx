@@ -1,4 +1,4 @@
-import { App, Button, InputNumber, Modal, Select, Space, Table, Typography } from 'antd';
+import { App, Button, InputNumber, Modal, Select, Table, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { apiErrorMessage } from '../../api/client';
 import { recipesApi } from '../../api/endpoints';
