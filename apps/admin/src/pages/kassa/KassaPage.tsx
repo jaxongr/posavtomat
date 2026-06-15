@@ -28,6 +28,7 @@ export default function KassaPage() {
 
   const [lines, setLines] = useState<Line[]>([]);
   const [provider, setProvider] = useState<'CASH' | 'CARD'>('CASH');
+  const [tendered, setTendered] = useState<number>(0); // naqd berildi
   const [paying, setPaying] = useState(false);
 
   const total = useMemo(() => lines.reduce((s, l) => s + Number(l.product.price) * l.qty, 0), [lines]);
@@ -71,6 +72,7 @@ export default function KassaPage() {
         payments: [{ provider, amount: total }],
       });
       setLines([]);
+      setTendered(0);
       message.success('Savdo yakunlandi');
       void qc.invalidateQueries({ queryKey: ['shift'] });
       void qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -155,6 +157,31 @@ export default function KassaPage() {
             <Radio.Button value="CASH">Naqd</Radio.Button>
             <Radio.Button value="CARD">Karta</Radio.Button>
           </Radio.Group>
+
+          {provider === 'CASH' && lines.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <InputNumber
+                style={{ width: '100%' }}
+                min={0}
+                addonBefore="Naqd berildi"
+                value={tendered || undefined}
+                onChange={(v) => setTendered(Number(v))}
+              />
+              <Space wrap style={{ marginTop: 8 }}>
+                {[total, 50000, 100000, 200000].map((amt, i) => (
+                  <Button key={i} size="small" onClick={() => setTendered(amt)}>
+                    {amt.toLocaleString()}
+                  </Button>
+                ))}
+              </Space>
+              {tendered >= total && (
+                <div style={{ marginTop: 8, fontSize: 16 }}>
+                  Qaytim: <strong style={{ color: '#16A34A' }}>{(tendered - total).toLocaleString()} so‘m</strong>
+                </div>
+              )}
+            </div>
+          )}
+
           <Space direction="vertical" style={{ width: '100%' }}>
             <Button type="primary" block size="large" loading={paying} disabled={!lines.length} onClick={checkout}>
               Yakunlash — {total.toLocaleString()} so‘m
