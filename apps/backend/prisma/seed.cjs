@@ -178,6 +178,10 @@ async function main() {
   await prisma.customer.upsert({ where: { id: uid(800) }, update: {}, create: { id: uid(800), organizationId: org.id, fish: 'Doimiy mijoz Akmal', phone: '+998935550001', loyaltyPoints: 120 } });
   await prisma.customer.upsert({ where: { id: uid(801) }, update: {}, create: { id: uid(801), organizationId: org.id, fish: 'Mijoz Dilnoza', phone: '+998935550002', loyaltyPoints: 45 } });
   await prisma.customer.upsert({ where: { id: uid(802) }, update: {}, create: { id: uid(802), organizationId: resto.id, fish: 'Mehmon Bobur', phone: '+998935550003', loyaltyPoints: 80 } });
+  await prisma.supplier.upsert({ where: { id: uid(820) }, update: {}, create: { id: uid(820), organizationId: org.id, name: 'OOO Optom Savdo', phone: '+998712001122' } });
+  await prisma.supplier.upsert({ where: { id: uid(821) }, update: {}, create: { id: uid(821), organizationId: org.id, name: 'Mega Distribyutor', phone: '+998712003344' } });
+  await prisma.supplier.upsert({ where: { id: uid(822) }, update: {}, create: { id: uid(822), organizationId: resto.id, name: 'Go‘sht bazasi', phone: '+998712005566' } });
+  await prisma.supplier.upsert({ where: { id: uid(823) }, update: {}, create: { id: uid(823), organizationId: resto.id, name: 'Sabzavot bozori', phone: '+998712007788' } });
   await prisma.discount.upsert({ where: { id: uid(810) }, update: {}, create: { id: uid(810), organizationId: org.id, name: 'Tushlik chegirma 10%', type: 'PERCENT', value: 10, promoCode: 'TUSHLIK', conditions: { minTotal: 50000 } } });
   await prisma.discount.upsert({ where: { id: uid(811) }, update: {}, create: { id: uid(811), organizationId: resto.id, name: 'Mehmon -5000', type: 'FIXED', value: 5000, promoCode: 'XUSH', conditions: {} } });
 
