@@ -94,5 +94,8 @@ export function apiErrorMessage(error: unknown): string {
   if (axios.isAxiosError(error)) {
     return (error as AxiosError<ApiErrorBody>).response?.data?.error?.message ?? error.message;
   }
+  if (error instanceof Error) {
+    return error.message;
+  }
   return 'Noma‘lum xato';
 }

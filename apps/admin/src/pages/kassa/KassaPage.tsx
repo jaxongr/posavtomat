@@ -8,6 +8,7 @@ import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
 import { useCurrentShift, useOpenShift } from '../../hooks/useShift';
 import type { Product } from '../../types';
+import { uuidv4 } from '../../utils/uuid';
 
 interface Line {
   product: Product;
@@ -63,7 +64,7 @@ export default function KassaPage() {
     setPaying(true);
     try {
       await salesApi.create({
-        idempotencyKey: crypto.randomUUID(),
+        idempotencyKey: uuidv4(),
         type: tableId ? 'DINE_IN' : 'POS',
         ...(tableId ? { tableId } : {}),
         items: lines.map((l) => ({ productId: l.product.id, qty: l.qty })),
