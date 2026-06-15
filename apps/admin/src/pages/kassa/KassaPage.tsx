@@ -7,6 +7,7 @@ import { salesApi } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
 import { useCurrentShift, useOpenShift } from '../../hooks/useShift';
+import { useOrganization } from '../../hooks/useRestaurant';
 import { useAuthStore } from '../../store/auth.store';
 import { useSettings } from '../../store/settings.store';
 import type { Product } from '../../types';
@@ -27,6 +28,7 @@ export default function KassaPage() {
   const autoPrint = useSettings((s) => s.autoPrint);
   const setAutoPrint = useSettings((s) => s.setAutoPrint);
   const user = useAuthStore((s) => s.user);
+  const rc = useOrganization().data?.settings?.receipt ?? {};
 
   const [params] = useSearchParams();
   const tableId = params.get('table') ?? undefined;
@@ -78,7 +80,11 @@ export default function KassaPage() {
         payments: [{ provider, amount: total }],
       });
       const receipt = {
-        shopName: 'SAVDO-POS',
+        shopName: rc.shopName || 'SAVDO-POS',
+        address: rc.address,
+        phone: rc.phone,
+        footer: rc.footer,
+        width: rc.width,
         receiptNo: sale.id.slice(0, 8),
         lines: lines.map((l) => ({ name: l.product.name, qty: l.qty, price: Number(l.product.price) })),
         subtotal: total,
@@ -87,7 +93,7 @@ export default function KassaPage() {
         provider,
         paid: provider === 'CASH' && tendered ? tendered : total,
         change: provider === 'CASH' && tendered > total ? tendered - total : 0,
-        cashier: user?.fish,
+        cashier: rc.showCashier === false ? undefined : user?.fish,
         dateTime: new Date().toLocaleString(),
       };
       setLines([]);

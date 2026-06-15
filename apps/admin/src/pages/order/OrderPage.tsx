@@ -6,6 +6,7 @@ import { apiErrorMessage } from '../../api/client';
 import { ordersApi } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
+import { useOrganization } from '../../hooks/useRestaurant';
 import { useSettings } from '../../store/settings.store';
 import type { Product } from '../../types';
 import { printReceipt } from '../../utils/receipt';
@@ -19,6 +20,7 @@ export default function OrderPage() {
   const { message, modal } = App.useApp();
 
   const autoPrint = useSettings((s) => s.autoPrint);
+  const rc = useOrganization().data?.settings?.receipt ?? {};
   const products = useProducts({});
   const orderQ = useQuery({ queryKey: ['order', tableId], queryFn: () => ordersApi.byTable(tableId), enabled: Boolean(tableId) });
   const order = orderQ.data;
@@ -70,7 +72,11 @@ export default function OrderPage() {
     try {
       await ordersApi.pay(order.id, [{ provider, amount: Number(order.total) }]);
       const receipt = {
-        shopName: 'SAVDO-POS',
+        shopName: rc.shopName || 'SAVDO-POS',
+        address: rc.address,
+        phone: rc.phone,
+        footer: rc.footer,
+        width: rc.width,
         receiptNo: order.id.slice(0, 8),
         lines: order.items.map((it) => ({ name: it.product.name, qty: Number(it.qty), price: Number(it.price) })),
         subtotal: Number(order.subtotal),

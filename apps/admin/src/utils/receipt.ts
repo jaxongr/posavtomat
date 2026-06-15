@@ -6,6 +6,10 @@ export interface ReceiptLine {
 
 export interface ReceiptData {
   shopName: string;
+  address?: string;
+  phone?: string;
+  footer?: string;
+  width?: '58' | '80';
   receiptNo: string;
   lines: ReceiptLine[];
   subtotal: number;
@@ -35,10 +39,12 @@ export function printReceipt(d: ReceiptData): void {
     )
     .join('');
 
+  const widthPx = d.width === '58' ? 210 : 280;
+  const head = [d.address, d.phone].filter(Boolean).map(escapeHtml).join('<br>');
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>Chek ${d.receiptNo}</title>
   <style>
     * { font-family: 'Courier New', monospace; }
-    body { width: 280px; margin: 0 auto; color: #000; }
+    body { width: ${widthPx}px; margin: 0 auto; color: #000; }
     h2 { text-align: center; margin: 8px 0; font-size: 16px; }
     .muted { text-align: center; font-size: 11px; color: #333; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
@@ -49,6 +55,7 @@ export function printReceipt(d: ReceiptData): void {
     .foot { text-align: center; font-size: 11px; margin-top: 10px; }
   </style></head><body>
     <h2>${escapeHtml(d.shopName)}</h2>
+    ${head ? `<div class="muted">${head}</div>` : ''}
     <div class="muted">Chek #${escapeHtml(d.receiptNo)}<br>${escapeHtml(d.dateTime)}${
       d.cashier ? `<br>Kassir: ${escapeHtml(d.cashier)}` : ''
     }${d.tableName ? `<br>${escapeHtml(d.tableName)}` : ''}</div>
@@ -64,7 +71,7 @@ export function printReceipt(d: ReceiptData): void {
       ${d.change !== undefined && d.change > 0 ? `<tr><td>Qaytim:</td><td class="r">${money(d.change)}</td></tr>` : ''}
     </table>
     <hr>
-    <div class="foot">Xaridingiz uchun rahmat!<br>SAVDO-POS</div>
+    <div class="foot">${escapeHtml(d.footer ?? 'Xaridingiz uchun rahmat!')}</div>
     <script>window.onload=function(){window.print();setTimeout(function(){window.close()},300)}</script>
   </body></html>`;
 

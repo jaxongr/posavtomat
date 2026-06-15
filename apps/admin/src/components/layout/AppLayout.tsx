@@ -8,6 +8,7 @@ import {
   GiftOutlined,
   InboxOutlined,
   LogoutOutlined,
+  SettingOutlined,
   ShoppingCartOutlined,
   ShoppingOutlined,
   SmileOutlined,
@@ -46,6 +47,7 @@ const NAV: NavItem[] = [
   { key: '/discounts', icon: <GiftOutlined />, label: 'Chegirmalar', roles: ['OWNER', 'MANAGER'] },
   { key: '/customers', icon: <SmileOutlined />, label: 'Mijozlar', roles: ['OWNER', 'MANAGER', 'CASHIER', 'SELLER', 'WAITER'] },
   { key: '/staff', icon: <TeamOutlined />, label: 'Hodimlar', roles: ['OWNER', 'MANAGER'] },
+  { key: '/settings', icon: <SettingOutlined />, label: 'Sozlamalar', roles: ['OWNER', 'MANAGER'] },
   { key: '/shifts', icon: <WalletOutlined />, label: 'Smena', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER'] },
 ];
 

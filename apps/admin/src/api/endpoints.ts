@@ -18,12 +18,27 @@ export const authApi = {
     api.post<{ data: AuthTokens }>('/auth/login', { login, password }).then((r) => r.data.data),
 };
 
+export interface ReceiptConfig {
+  shopName?: string;
+  address?: string;
+  phone?: string;
+  footer?: string;
+  width?: '58' | '80';
+  showCashier?: boolean;
+}
+
+export interface Organization {
+  id: string;
+  name: string;
+  businessType: 'DOKON' | 'RESTORAN';
+  settings: { receipt?: ReceiptConfig } & Record<string, unknown>;
+}
+
 export const orgApi = {
   branches: () => api.get<{ data: Branch[] }>('/branches').then((r) => r.data.data),
-  organization: () =>
-    api
-      .get<{ data: { id: string; name: string; businessType: 'DOKON' | 'RESTORAN'; settings: unknown } }>('/organization')
-      .then((r) => r.data.data),
+  organization: () => api.get<{ data: Organization }>('/organization').then((r) => r.data.data),
+  update: (body: { name?: string; receipt?: ReceiptConfig }) =>
+    api.patch<{ data: Organization }>('/organization', body).then((r) => r.data.data),
 };
 
 export interface DiningTable {

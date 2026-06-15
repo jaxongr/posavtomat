@@ -1,9 +1,45 @@
-import { Controller, Get, Module, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Body, Controller, Get, Module, Patch, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
+import { Prisma, Role } from '@prisma/client';
+import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { Roles } from '../../common/decorators/roles.decorator';
 import { AuthUser } from '../../common/types/auth.types';
 import { PrismaService } from '../../prisma/prisma.service';
+
+class ReceiptSettingsDto {
+  @ApiPropertyOptional({ example: 'Mening Do‘konim' })
+  @IsOptional() @IsString() @MaxLength(60)
+  shopName?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(120)
+  address?: string;
+
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(40)
+  phone?: string;
+
+  @ApiPropertyOptional({ description: 'Pastki matn (chek oxiri)' })
+  @IsOptional() @IsString() @MaxLength(120)
+  footer?: string;
+
+  @ApiPropertyOptional({ enum: ['58', '80'], description: 'Qog‘oz eni mm' })
+  @IsOptional() @IsIn(['58', '80'])
+  width?: '58' | '80';
+
+  @ApiPropertyOptional({ description: 'Kassir ismini ko‘rsatish' })
+  @IsOptional() @IsBoolean()
+  showCashier?: boolean;
+}
+
+class UpdateOrgDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() @MaxLength(60)
+  name?: string;
+
+  @ApiProperty({ type: ReceiptSettingsDto })
+  @IsOptional()
+  receipt?: ReceiptSettingsDto;
+}
 
 @ApiTags('organization')
 @ApiBearerAuth()
@@ -11,9 +47,6 @@ import { PrismaService } from '../../prisma/prisma.service';
 class OrganizationController {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Branch list is needed for OWNER/MANAGER to choose a tenant branch
-  // (x-branch-id). Scoped to the user's organization — no TenantGuard here
-  // because branch is not yet selected.
   @Get('branches')
   @UseGuards(JwtAuthGuard)
   @ApiOperation({ summary: 'Tashkilot filiallari' })
@@ -31,6 +64,24 @@ class OrganizationController {
   organization(@CurrentUser() user: AuthUser) {
     return this.prisma.organization.findUnique({
       where: { id: user.organizationId },
+      select: { id: true, name: true, businessType: true, settings: true },
+    });
+  }
+
+  @Patch('organization')
+  @Roles(Role.OWNER, Role.MANAGER)
+  @ApiOperation({ summary: 'Tashkilot/chek sozlamalarini yangilash' })
+  async update(@Body() dto: UpdateOrgDto, @CurrentUser() user: AuthUser) {
+    const org = await this.prisma.organization.findUniqueOrThrow({ where: { id: user.organizationId } });
+    const current = (org.settings ?? {}) as Record<string, unknown>;
+    const currentReceipt = (current.receipt ?? {}) as Record<string, unknown>;
+    const settings = {
+      ...current,
+      ...(dto.receipt ? { receipt: { ...currentReceipt, ...dto.receipt } } : {}),
+    } as Prisma.InputJsonValue;
+    return this.prisma.organization.update({
+      where: { id: user.organizationId },
+      data: { ...(dto.name ? { name: dto.name } : {}), settings },
       select: { id: true, name: true, businessType: true, settings: true },
     });
   }
