@@ -196,7 +196,7 @@ export interface CreateSaleBody {
   customerId?: string;
   promoCode?: string;
   items: { productId: string; qty: number }[];
-  payments: { provider: 'CASH' | 'CARD'; amount: number }[];
+  payments: { provider: 'CASH' | 'CARD' | 'DEBT'; amount: number }[];
 }
 
 export const salesApi = {
@@ -257,6 +257,7 @@ export interface Customer {
   fish: string;
   phone: string | null;
   loyaltyPoints: number;
+  debt: string;
 }
 
 export const customersApi = {
@@ -264,6 +265,8 @@ export const customersApi = {
     api.get<{ data: Customer[] }>('/customers', { params: { search } }).then((r) => r.data.data),
   create: (body: { fish: string; phone?: string; note?: string }) =>
     api.post<{ data: Customer }>('/customers', body).then((r) => r.data.data),
+  repay: (id: string, amount: number) =>
+    api.patch<{ data: Customer }>(`/customers/${id}/repay`, { amount }).then((r) => r.data.data),
 };
 
 export interface Supplier {

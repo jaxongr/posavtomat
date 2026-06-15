@@ -85,10 +85,14 @@ export class SalesService {
       });
     }
 
-    const cashTotal = dto.payments
-      .filter((p) => p.provider === PaymentProvider.CASH)
-      .reduce((acc, p) => acc.add(p.amount), Money.zero());
-    const cardTotal = total.subtract(cashTotal.toString());
+    const sumBy = (provider: PaymentProvider) =>
+      dto.payments.filter((p) => p.provider === provider).reduce((acc, p) => acc.add(p.amount), Money.zero());
+    const cashTotal = sumBy(PaymentProvider.CASH);
+    const cardTotal = sumBy(PaymentProvider.CARD);
+    const debtTotal = sumBy(PaymentProvider.DEBT);
+    if (debtTotal.greaterThan('0') && !dto.customerId) {
+      throw new BusinessException('E2003', 'Qarz (nasiya) uchun mijoz tanlanishi shart');
+    }
 
     // 5. Atomic transaction.
     try {
@@ -160,15 +164,16 @@ export class SalesService {
           },
         });
 
-        // Loyalty accrual: 1 point per 1000 UZS (no-op if customer not in org).
+        // Loyalty accrual (1 point / 1000 UZS) + debt (nasiya) increase.
         if (dto.customerId) {
           const points = Math.floor(total.toNumber() / 1000);
-          if (points > 0) {
-            await tx.customer.updateMany({
-              where: { id: dto.customerId, organizationId: ctx.orgId },
-              data: { loyaltyPoints: { increment: points } },
-            });
-          }
+          await tx.customer.updateMany({
+            where: { id: dto.customerId, organizationId: ctx.orgId },
+            data: {
+              ...(points > 0 ? { loyaltyPoints: { increment: points } } : {}),
+              ...(debtTotal.greaterThan('0') ? { debt: { increment: debtTotal.toPrisma() } } : {}),
+            },
+          });
         }
 
         // Audit.

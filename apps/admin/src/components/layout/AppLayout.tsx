@@ -9,6 +9,7 @@ import {
   GiftOutlined,
   InboxOutlined,
   LogoutOutlined,
+  RollbackOutlined,
   SettingOutlined,
   ShoppingCartOutlined,
   ShoppingOutlined,
@@ -135,7 +136,11 @@ export default function AppLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
-          items={[...items, { key: 'logout', icon: <LogoutOutlined />, label: 'Chiqish', onClick: logout }]}
+          items={[
+            ...(stash ? [{ key: '__back', icon: <RollbackOutlined />, label: 'Boshqaruvga qaytish', onClick: backToAdmin }] : []),
+            ...items,
+            { key: 'logout', icon: <LogoutOutlined />, label: 'Chiqish', onClick: logout },
+          ]}
         />
       </Sider>
       <Layout>

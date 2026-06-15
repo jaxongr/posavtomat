@@ -79,6 +79,7 @@ enum PaidStatus {
 enum PaymentProvider {
   CASH
   CARD // lokal terminal
+  DEBT // qarz (nasiya) — mijoz qarzi oshadi
   PAYME // 7-bosqich
   CLICK // 7-bosqich
   UZUM // 7-bosqich
@@ -596,6 +597,7 @@ model Customer {
   fish           String
   phone          String?
   loyaltyPoints  Int          @default(0)
+  debt           Decimal      @default(0) @db.Decimal(14, 2) // nasiya qarzi (so'm)
   note           String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

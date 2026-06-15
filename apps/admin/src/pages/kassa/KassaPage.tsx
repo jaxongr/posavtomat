@@ -36,7 +36,7 @@ export default function KassaPage() {
   const tableName = params.get('tableName') ?? undefined;
 
   const [lines, setLines] = useState<Line[]>([]);
-  const [provider, setProvider] = useState<'CASH' | 'CARD'>('CASH');
+  const [provider, setProvider] = useState<'CASH' | 'CARD' | 'DEBT'>('CASH');
   const [tendered, setTendered] = useState<number>(0); // naqd berildi
   const [customerId, setCustomerId] = useState<string>();
   const [paying, setPaying] = useState(false);
@@ -73,6 +73,10 @@ export default function KassaPage() {
 
   const checkout = async () => {
     if (!lines.length) return;
+    if (provider === 'DEBT' && !customerId) {
+      message.warning('Qarz uchun mijoz tanlang');
+      return;
+    }
     setPaying(true);
     try {
       const sale = await salesApi.create({
@@ -207,6 +211,7 @@ export default function KassaPage() {
           <Radio.Group value={provider} onChange={(e) => setProvider(e.target.value)} style={{ marginBottom: 12 }}>
             <Radio.Button value="CASH">Naqd</Radio.Button>
             <Radio.Button value="CARD">Karta</Radio.Button>
+            <Radio.Button value="DEBT">Qarz</Radio.Button>
           </Radio.Group>
 
           {provider === 'CASH' && lines.length > 0 && (

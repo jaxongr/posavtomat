@@ -66,7 +66,7 @@ export function printReceipt(d: ReceiptData): void {
       <tr><td>Oraliq:</td><td class="r">${money(d.subtotal)}</td></tr>
       ${d.discount > 0 ? `<tr><td>Chegirma:</td><td class="r">-${money(d.discount)}</td></tr>` : ''}
       <tr class="tot"><td>JAMI:</td><td class="r">${money(d.total)} so‘m</td></tr>
-      ${d.provider ? `<tr><td>To‘lov:</td><td class="r">${d.provider === 'CASH' ? 'Naqd' : d.provider === 'CARD' ? 'Karta' : d.provider}</td></tr>` : ''}
+      ${d.provider ? `<tr><td>To‘lov:</td><td class="r">${d.provider === 'CASH' ? 'Naqd' : d.provider === 'CARD' ? 'Karta' : d.provider === 'DEBT' ? 'Qarz (nasiya)' : d.provider}</td></tr>` : ''}
       ${d.paid !== undefined ? `<tr><td>Berildi:</td><td class="r">${money(d.paid)}</td></tr>` : ''}
       ${d.change !== undefined && d.change > 0 ? `<tr><td>Qaytim:</td><td class="r">${money(d.change)}</td></tr>` : ''}
     </table>
