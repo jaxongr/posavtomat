@@ -40,9 +40,14 @@ ING1=$(curl -sS "${H[@]}" "$API/inventory/stock?limit=100" | jq -r '.data[] | se
 echo "    ingredient: $ING0 -> $ING1"
 awk "BEGIN{exit !($ING0 - $ING1 > 0)}" && ok "ingredient kamaydi (texkarta depletion)" || bad "depletion: $ING0->$ING1"
 
-echo "== Table occupied =="
-TS=$(curl -sS "${H[@]}" "$API/tables" | jq -r ".data[] | select(.id==\"$TABLE\") | .status")
-[ "$TS" = "OCCUPIED" ] && ok "stol band bo'ldi" || bad "table status: $TS"
+echo "== Order lifecycle: open occupies table, cancel frees it =="
+T2=$(curl -sS "${H[@]}" "$API/tables" | jq -r '.data[]|select(.status=="FREE")|.id' | head -1)
+O2=$(curl -sS -X POST "${H[@]}" -H 'Content-Type: application/json' "$API/orders" -d "{\"tableId\":\"$T2\",\"items\":[{\"productId\":\"$DISH\",\"qty\":1}]}" | jq -r '.data.id')
+TS=$(curl -sS "${H[@]}" "$API/tables" | jq -r ".data[]|select(.id==\"$T2\")|.status")
+[ "$TS" = "OCCUPIED" ] && ok "buyurtma ochilganda stol band bo'ldi" || bad "open occupy: $TS"
+curl -sS -X POST "${H[@]}" "$API/orders/$O2/cancel" >/dev/null 2>&1
+TS2=$(curl -sS "${H[@]}" "$API/tables" | jq -r ".data[]|select(.id==\"$T2\")|.status")
+[ "$TS2" = "FREE" ] && ok "bekor qilinganda stol bo'shadi" || bad "cancel free: $TS2"
 
 echo "== KOT created (KDS) =="
 KOT=$(curl -sS "${H[@]}" "$API/kitchen/kots" | jq -r ".data[] | select(.sale.id==\"$SID\") | .id")
