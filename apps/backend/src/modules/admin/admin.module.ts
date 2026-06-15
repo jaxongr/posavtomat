@@ -103,6 +103,42 @@ class AdminController {
     }));
   }
 
+  @Get('organizations/:id')
+  @ApiOperation({ summary: 'Biznes tafsiloti — filiallar, hodimlar, statistika' })
+  async detail(@Param('id', ParseUUIDPipe) id: string) {
+    const org = await this.prisma.organization.findUnique({
+      where: { id },
+      select: {
+        id: true, name: true, businessType: true, active: true,
+        plan: true, subscriptionPrice: true, subscriptionEndsAt: true, createdAt: true, settings: true,
+      },
+    });
+    if (!org) {
+      throw new BusinessException('E2001', 'Biznes topilmadi');
+    }
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const [branches, staff, productCount, agg, todayAgg] = await Promise.all([
+      this.prisma.branch.findMany({ where: { organizationId: id, deletedAt: null }, select: { id: true, name: true, address: true, active: true } }),
+      this.prisma.staff.findMany({ where: { organizationId: id, deletedAt: null }, select: { id: true, fish: true, role: true, phone: true, branchId: true, active: true }, orderBy: { fish: 'asc' } }),
+      this.prisma.product.count({ where: { organizationId: id, deletedAt: null } }),
+      this.prisma.sale.aggregate({ where: { organizationId: id, status: 'COMPLETED' }, _sum: { total: true }, _count: { _all: true } }),
+      this.prisma.sale.aggregate({ where: { organizationId: id, status: 'COMPLETED', completedAt: { gte: startOfDay } }, _sum: { total: true }, _count: { _all: true } }),
+    ]);
+    return {
+      org: { ...org, subscription: subscriptionStatus(org.subscriptionEndsAt) },
+      branches,
+      staff,
+      stats: {
+        productCount,
+        revenueTotal: Money.of(agg._sum.total ?? 0).toString(),
+        salesCount: agg._count._all,
+        todaySales: Money.of(todayAgg._sum.total ?? 0).toString(),
+        todayCount: todayAgg._count._all,
+      },
+    };
+  }
+
   @Post('organizations')
   @ApiOperation({ summary: 'Yangi biznes yaratish (tashkilot + egasi + filial)' })
   async create(@Body() dto: CreateBusinessDto) {

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { apiErrorMessage } from '../../api/client';
 import { adminApi, type AdminOrg } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
+import BusinessDetailDrawer from './BusinessDetailDrawer';
 
 const stateTag: Record<string, { color: string; label: string }> = {
   active: { color: 'green', label: 'Faol' },
@@ -17,6 +18,7 @@ export default function SuperAdminPage() {
   const orgsQ = useQuery({ queryKey: ['admin-orgs'], queryFn: adminApi.organizations });
   const [createOpen, setCreateOpen] = useState(false);
   const [subOrg, setSubOrg] = useState<AdminOrg | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
   const [createForm] = Form.useForm();
   const [subForm] = Form.useForm();
 
@@ -72,6 +74,7 @@ export default function SuperAdminPage() {
       title: '',
       render: (_: unknown, r: AdminOrg) => (
         <Space>
+          <Button size="small" onClick={() => setDetailId(r.id)}>Ko‘rish</Button>
           <Button size="small" type="primary" onClick={() => { setSubOrg(r); subForm.setFieldsValue({ plan: r.plan, price: Number(r.subscriptionPrice), addDays: 30 }); }}>Obuna</Button>
           <Button size="small" danger={r.active} onClick={() => toggle.mutate(r.id)}>{r.active ? 'Bloklash' : 'Faollashtirish'}</Button>
         </Space>
@@ -123,6 +126,8 @@ export default function SuperAdminPage() {
           </Space>
         </Form>
       </Modal>
+
+      <BusinessDetailDrawer orgId={detailId} onClose={() => setDetailId(null)} />
 
       {/* Subscription */}
       <Modal title={`Obuna — ${subOrg?.name ?? ''}`} open={Boolean(subOrg)} onOk={() => subForm.submit()} onCancel={() => setSubOrg(null)} confirmLoading={setSub.isPending}>

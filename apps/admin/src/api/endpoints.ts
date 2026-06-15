@@ -69,8 +69,16 @@ export interface AdminOrg {
   lastActivity: string | null;
 }
 
+export interface AdminOrgDetail {
+  org: AdminOrg & { settings: Record<string, unknown> };
+  branches: { id: string; name: string; address: string | null; active: boolean }[];
+  staff: { id: string; fish: string; role: string; phone: string | null; branchId: string | null; active: boolean }[];
+  stats: { productCount: number; revenueTotal: string; salesCount: number; todaySales: string; todayCount: number };
+}
+
 export const adminApi = {
   organizations: () => api.get<{ data: AdminOrg[] }>('/admin/organizations').then((r) => r.data.data),
+  detail: (id: string) => api.get<{ data: AdminOrgDetail }>(`/admin/organizations/${id}`).then((r) => r.data.data),
   createBusiness: (body: {
     name: string;
     businessType: string;
