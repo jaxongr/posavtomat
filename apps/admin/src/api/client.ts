@@ -10,19 +10,42 @@ export const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Attach access token + tenant branch header.
-api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const { accessToken, branchId } = useAuthStore.getState();
-  if (accessToken) {
-    config.headers.set('Authorization', `Bearer ${accessToken}`);
+/** Decode a JWT's exp (seconds). Returns 0 if unparseable. */
+function tokenExp(token: string): number {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1])) as { exp?: number };
+    return payload.exp ?? 0;
+  } catch {
+    return 0;
+  }
+}
+
+function isExpiring(token: string): boolean {
+  const exp = tokenExp(token);
+  // Refresh ~10s before actual expiry to avoid a 401 round-trip.
+  return exp > 0 && Date.now() / 1000 >= exp - 10;
+}
+
+let refreshing: Promise<string | null> | null = null;
+
+// Attach access token (refresh proactively if it is about to expire) + branch.
+api.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+  const { accessToken, refreshToken, branchId } = useAuthStore.getState();
+  let token = accessToken;
+  const isAuthCall = config.url?.includes('/auth/');
+  if (token && refreshToken && !isAuthCall && isExpiring(token)) {
+    refreshing = refreshing ?? refreshAccess();
+    token = await refreshing;
+    refreshing = null;
+  }
+  if (token) {
+    config.headers.set('Authorization', `Bearer ${token}`);
   }
   if (branchId) {
     config.headers.set('x-branch-id', branchId);
   }
   return config;
 });
-
-let refreshing: Promise<string | null> | null = null;
 
 async function refreshAccess(): Promise<string | null> {
   const { refreshToken, setAuth, clear } = useAuthStore.getState();
