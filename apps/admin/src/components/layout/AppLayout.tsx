@@ -131,7 +131,10 @@ export default function AppLayout() {
   return (
     <Layout style={{ minHeight: '100vh' }}>
       <Sider breakpoint="lg" collapsedWidth="0">
-        <div style={{ color: '#fff', padding: 16, fontWeight: 700, fontSize: 18 }}>SAVDO-POS</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '18px 16px' }}>
+          <div style={{ width: 34, height: 34, borderRadius: 10, background: 'linear-gradient(135deg,#818CF8,#4F46E5)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 800, fontSize: 18 }}>S</div>
+          <span style={{ color: '#fff', fontWeight: 700, fontSize: 17, letterSpacing: 0.3 }}>SAVDO-POS</span>
+        </div>
         <Menu
           theme="dark"
           mode="inline"

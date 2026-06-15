@@ -143,15 +143,12 @@ export class SalesService {
           await this.deductForLine(tx, line, ctx, created.id);
         }
 
-        // Restaurant: send cooked dishes to the kitchen (KOT) and occupy the table.
+        // Restaurant pay-now: send cooked dishes to the kitchen (KOT). The table
+        // is NOT persistently occupied here — table occupation is owned by the
+        // open-order lifecycle (openOrder occupies, payOrder/cancel frees) to
+        // avoid tables getting stuck OCCUPIED after a paid sale.
         if (dto.type === SaleType.DINE_IN || dto.type === SaleType.TAKEAWAY) {
           await this.createKot(tx, created.id, lines);
-          if (dto.tableId) {
-            await tx.diningTable.updateMany({
-              where: { id: dto.tableId, organizationId: ctx.orgId, branchId: ctx.branchId },
-              data: { status: 'OCCUPIED' },
-            });
-          }
         }
 
         // Shift running totals.

@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f6fa;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Soft, premium card shadow + subtle lift on hover */
+.ant-card {
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.06) !important;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.ant-card-hoverable:hover {
+  box-shadow: 0 8px 28px rgba(79, 70, 229, 0.14) !important;
+  transform: translateY(-2px);
+}
+
+/* Statistic cards a touch bolder */
+.ant-statistic-title {
+  font-size: 13px;
+  color: #6b7280;
+}
+.ant-statistic-content {
+  font-weight: 700;
+}
+
+/* Sidebar: gradient brand look */
+.ant-layout-sider {
+  background: linear-gradient(180deg, #1e1b4b 0%, #312e81 100%) !important;
+}
+.ant-menu.ant-menu-dark {
+  background: transparent !important;
+}
+.ant-menu-dark .ant-menu-item-selected {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-radius: 10px;
+}
+.ant-menu-dark .ant-menu-item {
+  border-radius: 10px;
+  margin-inline: 8px;
+  width: calc(100% - 16px);
+}
+
+/* Header shadow */
+.ant-layout-header {
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.06);
+}
+
+/* Tables: airy header */
+.ant-table-thead > tr > th {
+  background: #f8fafc !important;
+  font-weight: 600 !important;
+  color: #475467 !important;
+}
+
+/* Rounded scrollbars */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 8px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Login gradient backdrop */
+.login-bg {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: radial-gradient(1200px 600px at 10% 10%, #6366f1 0%, transparent 45%),
+    radial-gradient(1000px 500px at 90% 90%, #0ea5e9 0%, transparent 45%), #0b1020;
+  padding: 16px;
+}
+
+/* POS product tile pop */
+.pos-tile {
+  cursor: pointer;
+  border-radius: 14px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+.pos-tile:active {
+  transform: scale(0.97);
+}

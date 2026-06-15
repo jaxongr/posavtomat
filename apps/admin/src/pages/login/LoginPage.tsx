@@ -30,10 +30,22 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center', background: '#F8FAFC' }}>
-      <Card style={{ width: 380 }}>
-        <Typography.Title level={3} style={{ textAlign: 'center' }}>SAVDO-POS</Typography.Title>
-        <Typography.Paragraph type="secondary" style={{ textAlign: 'center' }}>
+    <div className="login-bg">
+      <Card style={{ width: 400, borderRadius: 20, boxShadow: '0 24px 64px rgba(0,0,0,0.35)' }}>
+        <div style={{ textAlign: 'center', marginBottom: 8 }}>
+          <div
+            style={{
+              width: 64, height: 64, margin: '0 auto 12px', borderRadius: 18,
+              background: 'linear-gradient(135deg,#6366F1,#4F46E5)', display: 'flex',
+              alignItems: 'center', justifyContent: 'center', fontSize: 30, color: '#fff', fontWeight: 800,
+              boxShadow: '0 8px 24px rgba(79,70,229,0.4)',
+            }}
+          >
+            S
+          </div>
+        </div>
+        <Typography.Title level={3} style={{ textAlign: 'center', margin: 0 }}>SAVDO-POS</Typography.Title>
+        <Typography.Paragraph type="secondary" style={{ textAlign: 'center', marginBottom: 20 }}>
           Boshqaruv paneliga kirish
         </Typography.Paragraph>
         <Form layout="vertical" onFinish={onFinish}>

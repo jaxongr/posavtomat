@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { apiErrorMessage } from '../../api/client';
-import { ordersApi } from '../../api/endpoints';
+import { ordersApi, tablesApi } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
 import { useCustomers } from '../../hooks/useMarketing';
@@ -224,7 +224,20 @@ export default function OrderPage() {
                 </Space>
               </>
             ) : (
-              <Typography.Text type="secondary">Hali buyurtma ochilmagan. Taom tanlab &quot;Oshxonaga yuborish&quot;ni bosing.</Typography.Text>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Typography.Text type="secondary">Hali buyurtma ochilmagan. Taom tanlab &quot;Oshxonaga yuborish&quot;ni bosing.</Typography.Text>
+                <Button
+                  size="small"
+                  onClick={async () => {
+                    await tablesApi.setStatus(tableId, 'FREE');
+                    void qc.invalidateQueries({ queryKey: ['tables'] });
+                    message.success('Stol bo‘shatildi');
+                    navigate('/tables');
+                  }}
+                >
+                  Stolni bo‘shatish (band bo‘lib qolgan bo‘lsa)
+                </Button>
+              </Space>
             )}
           </Card>
         </Col>
