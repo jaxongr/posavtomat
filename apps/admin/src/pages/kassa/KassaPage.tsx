@@ -1,4 +1,4 @@
-import { App, Button, Card, Col, Empty, Input, InputNumber, List, Radio, Row, Space, Statistic, Switch, Typography } from 'antd';
+import { App, Button, Card, Col, Empty, Input, InputNumber, List, Radio, Row, Select, Space, Statistic, Switch, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
@@ -6,6 +6,7 @@ import { apiErrorMessage } from '../../api/client';
 import { salesApi } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
+import { useCustomers } from '../../hooks/useMarketing';
 import { useCurrentShift, useOpenShift } from '../../hooks/useShift';
 import { useOrganization } from '../../hooks/useRestaurant';
 import { useAuthStore } from '../../store/auth.store';
@@ -37,7 +38,9 @@ export default function KassaPage() {
   const [lines, setLines] = useState<Line[]>([]);
   const [provider, setProvider] = useState<'CASH' | 'CARD'>('CASH');
   const [tendered, setTendered] = useState<number>(0); // naqd berildi
+  const [customerId, setCustomerId] = useState<string>();
   const [paying, setPaying] = useState(false);
+  const customers = useCustomers();
 
   const total = useMemo(() => lines.reduce((s, l) => s + Number(l.product.price) * l.qty, 0), [lines]);
 
@@ -76,6 +79,7 @@ export default function KassaPage() {
         idempotencyKey: uuidv4(),
         type: tableId ? 'DINE_IN' : 'POS',
         ...(tableId ? { tableId } : {}),
+        ...(customerId ? { customerId } : {}),
         items: lines.map((l) => ({ productId: l.product.id, qty: l.qty })),
         payments: [{ provider, amount: total }],
       });
@@ -98,6 +102,7 @@ export default function KassaPage() {
       };
       setLines([]);
       setTendered(0);
+      setCustomerId(undefined);
       message.success('Savdo yakunlandi');
       // Auto-print, or ask if disabled.
       if (autoPrint) {
@@ -187,6 +192,16 @@ export default function KassaPage() {
                 <List.Item.Meta title={l.product.name} description={`${Number(l.product.price).toLocaleString()} so‘m`} />
               </List.Item>
             )}
+          />
+          <Select
+            showSearch
+            allowClear
+            optionFilterProp="label"
+            style={{ width: '100%', marginBottom: 8 }}
+            placeholder="Mijoz (loyalty) — ixtiyoriy"
+            value={customerId}
+            onChange={setCustomerId}
+            options={(customers.data ?? []).map((c) => ({ value: c.id, label: `${c.fish}${c.phone ? ` (${c.phone})` : ''}` }))}
           />
           <Statistic title="Jami" value={total} suffix="so‘m" style={{ margin: '12px 0' }} />
           <Radio.Group value={provider} onChange={(e) => setProvider(e.target.value)} style={{ marginBottom: 12 }}>

@@ -1,4 +1,4 @@
-import { App, Button, Card, Col, Divider, List, Modal, Radio, Row, Space, Statistic, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, Divider, Input, List, Modal, Radio, Row, Select, Space, Statistic, Tag, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { apiErrorMessage } from '../../api/client';
 import { ordersApi } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
+import { useCustomers } from '../../hooks/useMarketing';
 import { useOrganization } from '../../hooks/useRestaurant';
 import { useSettings } from '../../store/settings.store';
 import type { Product } from '../../types';
@@ -25,7 +26,10 @@ export default function OrderPage() {
   const orderQ = useQuery({ queryKey: ['order', tableId], queryFn: () => ordersApi.byTable(tableId), enabled: Boolean(tableId) });
   const order = orderQ.data;
 
+  const customers = useCustomers();
   const [toSend, setToSend] = useState<{ product: Product; qty: number }[]>([]);
+  const [customerId, setCustomerId] = useState<string>();
+  const [promoCode, setPromoCode] = useState('');
   const [sending, setSending] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [provider, setProvider] = useState<'CASH' | 'CARD'>('CASH');
@@ -52,7 +56,12 @@ export default function OrderPage() {
       if (order) {
         await ordersApi.addItems(order.id, items);
       } else {
-        await ordersApi.open({ tableId, items });
+        await ordersApi.open({
+          tableId,
+          items,
+          ...(customerId ? { customerId } : {}),
+          ...(promoCode ? { promoCode } : {}),
+        });
       }
       setToSend([]);
       message.success('Oshxonaga yuborildi');
@@ -158,6 +167,21 @@ export default function OrderPage() {
         {/* Order */}
         <Col xs={24} md={10}>
           <Card title="Yuboriladigan (yangi)" size="small" style={{ marginBottom: 16 }}>
+            {!order && (
+              <Space direction="vertical" style={{ width: '100%', marginBottom: 8 }}>
+                <Select
+                  showSearch
+                  allowClear
+                  optionFilterProp="label"
+                  style={{ width: '100%' }}
+                  placeholder="Mijoz (loyalty) — ixtiyoriy"
+                  value={customerId}
+                  onChange={setCustomerId}
+                  options={(customers.data ?? []).map((c) => ({ value: c.id, label: `${c.fish}${c.phone ? ` (${c.phone})` : ''}` }))}
+                />
+                <Input placeholder="Promokod (ixtiyoriy)" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
+              </Space>
+            )}
             <List
               size="small"
               dataSource={toSend}

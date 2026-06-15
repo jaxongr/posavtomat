@@ -84,11 +84,18 @@ class OrganizationController {
 
   @Post('branches')
   @Roles(Role.OWNER)
-  @ApiOperation({ summary: 'Yangi filial qo‘shish' })
-  createBranch(@Body() dto: CreateBranchDto, @CurrentUser() user: AuthUser) {
-    return this.prisma.branch.create({
-      data: { organizationId: user.organizationId, name: dto.name, address: dto.address },
-      select: { id: true, name: true, address: true },
+  @ApiOperation({ summary: 'Yangi filial qo‘shish (avtomatik kassa bilan)' })
+  async createBranch(@Body() dto: CreateBranchDto, @CurrentUser() user: AuthUser) {
+    return this.prisma.$transaction(async (tx) => {
+      const branch = await tx.branch.create({
+        data: { organizationId: user.organizationId, name: dto.name, address: dto.address },
+        select: { id: true, name: true, address: true },
+      });
+      // Every branch gets its own register so a shift can be opened immediately.
+      await tx.register.create({
+        data: { organizationId: user.organizationId, branchId: branch.id, name: 'Kassa 1' },
+      });
+      return branch;
     });
   }
 

@@ -20,6 +20,11 @@ export class OpenOrderDto {
   @IsOptional()
   @IsString()
   promoCode?: string;
+
+  @ApiPropertyOptional({ description: 'Mijoz (loyalty)' })
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
 }
 
 /** Append items to an open order (new KOT to the kitchen). */

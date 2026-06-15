@@ -63,6 +63,10 @@ export interface AdminOrg {
   subscriptionEndsAt: string | null;
   subscription: Subscription;
   _count: { branches: number; staff: number; sales: number };
+  revenueTotal: string;
+  todaySales: string;
+  todayCount: number;
+  lastActivity: string | null;
 }
 
 export const adminApi = {
@@ -127,7 +131,7 @@ export interface Order {
 export const ordersApi = {
   byTable: (tableId: string) =>
     api.get<{ data: Order | null }>(`/orders/by-table/${tableId}`).then((r) => r.data.data),
-  open: (body: { tableId: string; items: { productId: string; qty: number }[] }) =>
+  open: (body: { tableId: string; items: { productId: string; qty: number }[]; customerId?: string; promoCode?: string }) =>
     api.post<{ data: Order }>('/orders', body).then((r) => r.data.data),
   addItems: (id: string, items: { productId: string; qty: number }[]) =>
     api.post<{ data: Order }>(`/orders/${id}/items`, { items }).then((r) => r.data.data),
@@ -179,6 +183,8 @@ export interface CreateSaleBody {
   idempotencyKey: string;
   type: 'POS' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
   tableId?: string;
+  customerId?: string;
+  promoCode?: string;
   items: { productId: string; qty: number }[];
   payments: { provider: 'CASH' | 'CARD'; amount: number }[];
 }

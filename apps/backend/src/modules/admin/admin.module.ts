@@ -69,7 +69,7 @@ class AdminController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get('organizations')
-  @ApiOperation({ summary: 'Barcha bizneslar + obuna holati' })
+  @ApiOperation({ summary: 'Barcha bizneslar + obuna + savdo statistikasi' })
   async list() {
     const orgs = await this.prisma.organization.findMany({
       where: { deletedAt: null },
@@ -80,7 +80,27 @@ class AdminController {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return orgs.map((o) => ({ ...o, subscription: subscriptionStatus(o.subscriptionEndsAt) }));
+    const ids = orgs.map((o) => o.id);
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    const [allTime, today, last] = await Promise.all([
+      this.prisma.sale.groupBy({ by: ['organizationId'], where: { organizationId: { in: ids }, status: 'COMPLETED' }, _sum: { total: true } }),
+      this.prisma.sale.groupBy({ by: ['organizationId'], where: { organizationId: { in: ids }, status: 'COMPLETED', completedAt: { gte: startOfDay } }, _sum: { total: true }, _count: { _all: true } }),
+      this.prisma.sale.groupBy({ by: ['organizationId'], where: { organizationId: { in: ids } }, _max: { createdAt: true } }),
+    ]);
+    const allMap = new Map(allTime.map((r) => [r.organizationId, Money.of(r._sum.total ?? 0).toString()]));
+    const todayMap = new Map(today.map((r) => [r.organizationId, { total: Money.of(r._sum.total ?? 0).toString(), count: r._count._all }]));
+    const lastMap = new Map(last.map((r) => [r.organizationId, r._max.createdAt?.toISOString() ?? null]));
+
+    return orgs.map((o) => ({
+      ...o,
+      subscription: subscriptionStatus(o.subscriptionEndsAt),
+      revenueTotal: allMap.get(o.id) ?? '0',
+      todaySales: todayMap.get(o.id)?.total ?? '0',
+      todayCount: todayMap.get(o.id)?.count ?? 0,
+      lastActivity: lastMap.get(o.id) ?? null,
+    }));
   }
 
   @Post('organizations')

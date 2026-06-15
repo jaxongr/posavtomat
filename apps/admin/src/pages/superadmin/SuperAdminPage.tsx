@@ -1,4 +1,4 @@
-import { App, Button, Form, Input, InputNumber, Modal, Select, Space, Table, Tag, Typography } from 'antd';
+import { App, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { apiErrorMessage } from '../../api/client';
@@ -57,7 +57,17 @@ export default function SuperAdminPage() {
       },
     },
     { title: 'Filial/Hodim', render: (_: unknown, r: AdminOrg) => `${r._count.branches} / ${r._count.staff}` },
-    { title: 'Savdo', render: (_: unknown, r: AdminOrg) => r._count.sales },
+    {
+      title: 'Bugun',
+      render: (_: unknown, r: AdminOrg) => (
+        <span>{Number(r.todaySales).toLocaleString()} so‘m<br /><span style={{ fontSize: 11, color: '#999' }}>{r.todayCount} chek</span></span>
+      ),
+    },
+    { title: 'Jami daromad', render: (_: unknown, r: AdminOrg) => `${Number(r.revenueTotal).toLocaleString()} so‘m` },
+    {
+      title: 'Oxirgi faollik',
+      render: (_: unknown, r: AdminOrg) => (r.lastActivity ? new Date(r.lastActivity).toLocaleDateString() : '—'),
+    },
     {
       title: '',
       render: (_: unknown, r: AdminOrg) => (
@@ -77,7 +87,23 @@ export default function SuperAdminPage() {
       </Space>
 
       <QueryBoundary isLoading={orgsQ.isLoading} error={orgsQ.error} data={orgsQ.data} isEmpty={(d) => d.length === 0}>
-        {(rows) => <Table rowKey="id" dataSource={rows} columns={columns} pagination={false} scroll={{ x: 900 }} />}
+        {(rows) => {
+          const todayTotal = rows.reduce((s, r) => s + Number(r.todaySales), 0);
+          const allTotal = rows.reduce((s, r) => s + Number(r.revenueTotal), 0);
+          const activeSubs = rows.filter((r) => r.subscription.state !== 'expired').length;
+          const mrr = rows.reduce((s, r) => s + Number(r.subscriptionPrice), 0);
+          return (
+            <>
+              <Row gutter={16} style={{ marginBottom: 16 }}>
+                <Col xs={12} md={6}><Card><Statistic title="Bizneslar" value={rows.length} suffix={`/ ${activeSubs} faol`} /></Card></Col>
+                <Col xs={12} md={6}><Card><Statistic title="Bugungi savdo (jami)" value={todayTotal} suffix="so‘m" /></Card></Col>
+                <Col xs={12} md={6}><Card><Statistic title="Umumiy aylanma" value={allTotal} suffix="so‘m" /></Card></Col>
+                <Col xs={12} md={6}><Card><Statistic title="Oylik obuna (MRR)" value={mrr} suffix="so‘m" valueStyle={{ color: '#16A34A' }} /></Card></Col>
+              </Row>
+              <Table rowKey="id" dataSource={rows} columns={columns} pagination={false} scroll={{ x: 1100 }} />
+            </>
+          );
+        }}
       </QueryBoundary>
 
       {/* Create business */}

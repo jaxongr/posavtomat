@@ -334,6 +334,7 @@ export class SalesService {
           branchId: ctx.branchId,
           staffId: user.id,
           tableId: dto.tableId,
+          customerId: dto.customerId,
           type: SaleType.DINE_IN,
           status: SaleStatus.OPEN,
           paidStatus: PaidStatus.UNPAID,
