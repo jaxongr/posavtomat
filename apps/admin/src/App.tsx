@@ -16,6 +16,8 @@ const ShiftsPage = lazy(() => import('./pages/shifts/ShiftsPage'));
 const ReportsPage = lazy(() => import('./pages/reports/ReportsPage'));
 const DiscountsPage = lazy(() => import('./pages/discounts/DiscountsPage'));
 const CustomersPage = lazy(() => import('./pages/customers/CustomersPage'));
+const TablesPage = lazy(() => import('./pages/tables/TablesPage'));
+const KdsPage = lazy(() => import('./pages/kitchen/KdsPage'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const accessToken = useAuthStore((s) => s.accessToken);
@@ -59,6 +61,8 @@ export default function App() {
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/discounts" element={<DiscountsPage />} />
           <Route path="/customers" element={<CustomersPage />} />
+          <Route path="/tables" element={<TablesPage />} />
+          <Route path="/kds" element={<KdsPage />} />
         </Route>
         <Route path="*" element={<RoleHome />} />
       </Routes>

@@ -88,7 +88,77 @@ async function main() {
     });
   }
 
-  console.log('Seed complete: org=%s branch=%s', org.id, branch.id);
+  // ─────────────── RESTORAN demo tashkilot ───────────────
+  const resto = await prisma.organization.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000401' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000401', name: 'Demo Restoran', businessType: 'RESTORAN', settings: { currency: 'UZS', theme: { primary: '#E11D48' } } },
+  });
+  const rbranch = await prisma.branch.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000402' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000402', organizationId: resto.id, name: 'Restoran filiali', address: 'Toshkent' },
+  });
+  await prisma.register.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000403' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000403', organizationId: resto.id, branchId: rbranch.id, name: 'Kassa 1' },
+  });
+  await prisma.staff.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000410' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000410', organizationId: resto.id, fish: 'Restoran egasi', phone: '+998901113344', role: 'OWNER', passwordHash: hashSecret('owner123') },
+  });
+  await prisma.staff.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000411' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000411', organizationId: resto.id, branchId: rbranch.id, fish: 'Ofitsiant Salimov', phone: '+998901113355', role: 'WAITER', passwordHash: hashSecret('ofitsiant123'), pinHash: hashSecret('1111') },
+  });
+  await prisma.staff.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000412' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000412', organizationId: resto.id, branchId: rbranch.id, fish: 'Oshpaz Yusupov', phone: '+998901113366', role: 'COOK', passwordHash: hashSecret('oshpaz123'), pinHash: hashSecret('2222') },
+  });
+  const rcat = await prisma.category.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000420' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000420', organizationId: resto.id, name: 'Taomlar' },
+  });
+  // Ingredient (stocked) + dish (recipe-driven, not stocked)
+  const ingredient = await prisma.product.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000430' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000430', organizationId: resto.id, name: 'Go‘sht (xom ashyo)', unit: 'KG', type: 'INGREDIENT', price: 0, cost: 80000 },
+  });
+  await prisma.stock.upsert({
+    where: { branchId_productId: { branchId: rbranch.id, productId: ingredient.id } },
+    update: {},
+    create: { organizationId: resto.id, branchId: rbranch.id, productId: ingredient.id, quantity: 50, minQuantity: 5 },
+  });
+  const dish = await prisma.product.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000431' },
+    update: {},
+    create: { id: 'a0000000-0000-4000-8000-000000000431', organizationId: resto.id, categoryId: rcat.id, name: 'Kabob', unit: 'PORSIYA', type: 'DISH', price: 45000, cost: 0, trackStock: false },
+  });
+  const recipe = await prisma.recipe.upsert({
+    where: { dishProductId: dish.id },
+    update: {},
+    create: { dishProductId: dish.id },
+  });
+  const hasItem = await prisma.recipeItem.findFirst({ where: { recipeId: recipe.id, ingredientId: ingredient.id } });
+  if (!hasItem) {
+    await prisma.recipeItem.create({ data: { recipeId: recipe.id, ingredientId: ingredient.id, qty: 0.3 } });
+  }
+  for (let i = 1; i <= 6; i++) {
+    const id = `a0000000-0000-4000-8000-0000000004${(50 + i).toString()}`;
+    await prisma.diningTable.upsert({
+      where: { id },
+      update: {},
+      create: { id, organizationId: resto.id, branchId: rbranch.id, name: `Stol ${i}`, zone: i <= 4 ? 'Zal' : 'Terassa', seats: 4 },
+    });
+  }
+
+  console.log('Seed complete: DOKON org=%s | RESTORAN org=%s', org.id, resto.id);
 }
 
 main()

@@ -6,6 +6,7 @@ import {
   Prisma,
   ProductType,
   SaleStatus,
+  SaleType,
 } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { BusinessException } from '../../common/exceptions/business.exception';
@@ -21,6 +22,7 @@ import { CreateSaleDto, SaleItemInputDto } from './dto/create-sale.dto';
 interface PricedLine {
   input: SaleItemInputDto;
   productId: string;
+  productName: string;
   productType: ProductType;
   trackStock: boolean;
   unitPrice: Money;
@@ -132,6 +134,27 @@ export class SalesService {
         // Stock deduction (recipe depletion for dishes).
         for (const line of lines) {
           await this.deductForLine(tx, line, ctx, created.id);
+        }
+
+        // Restaurant: send order to the kitchen (KOT) and occupy the table.
+        if (dto.type === SaleType.DINE_IN || dto.type === SaleType.TAKEAWAY) {
+          await tx.kot.create({
+            data: {
+              saleId: created.id,
+              items: lines.map((l) => ({
+                productId: l.productId,
+                name: l.productName,
+                qty: l.qty.toNumber(),
+                modifiers: l.modifiers,
+              })) as unknown as Prisma.InputJsonValue,
+            },
+          });
+          if (dto.tableId) {
+            await tx.diningTable.updateMany({
+              where: { id: dto.tableId, organizationId: ctx.orgId, branchId: ctx.branchId },
+              data: { status: 'OCCUPIED' },
+            });
+          }
         }
 
         // Shift running totals.
@@ -350,6 +373,7 @@ export class SalesService {
       return {
         input,
         productId: product.id,
+        productName: product.name,
         productType: product.type,
         trackStock: product.trackStock,
         unitPrice,

@@ -21,6 +21,9 @@ import { StaffModule } from './modules/staff/staff.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { DiscountsModule } from './modules/discounts/discounts.module';
 import { CustomersModule } from './modules/customers/customers.module';
+import { TablesModule } from './modules/tables/tables.module';
+import { RecipesModule } from './modules/recipes/recipes.module';
+import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -44,6 +47,9 @@ import { HealthModule } from './modules/health/health.module';
     ReportsModule,
     DiscountsModule,
     CustomersModule,
+    TablesModule,
+    RecipesModule,
+    KitchenModule,
     OrganizationModule,
     HealthModule,
   ],

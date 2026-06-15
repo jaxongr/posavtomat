@@ -1,8 +1,10 @@
 import {
   AppstoreOutlined,
   BarChartOutlined,
+  CoffeeOutlined,
   DashboardOutlined,
   DownloadOutlined,
+  FireOutlined,
   GiftOutlined,
   InboxOutlined,
   LogoutOutlined,
@@ -16,6 +18,7 @@ import { Layout, Menu, Select, Space, Typography } from 'antd';
 import { useEffect, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useBranches } from '../../hooks/useStaff';
+import { useOrganization } from '../../hooks/useRestaurant';
 import { useAuthStore } from '../../store/auth.store';
 import type { AuthUser } from '../../types';
 
@@ -26,10 +29,13 @@ interface NavItem {
   icon: ReactNode;
   label: string;
   roles: AuthUser['role'][];
+  restaurantOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
   { key: '/', icon: <DashboardOutlined />, label: 'Boshqaruv', roles: ['OWNER', 'MANAGER'] },
+  { key: '/tables', icon: <CoffeeOutlined />, label: 'Zal', roles: ['OWNER', 'MANAGER', 'WAITER'], restaurantOnly: true },
+  { key: '/kds', icon: <FireOutlined />, label: 'Oshxona', roles: ['OWNER', 'MANAGER', 'COOK', 'WAITER'], restaurantOnly: true },
   { key: '/kassa', icon: <ShoppingCartOutlined />, label: 'Kassa', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER'] },
   { key: '/products', icon: <AppstoreOutlined />, label: 'Katalog', roles: ['OWNER', 'MANAGER', 'STOCKKEEPER'] },
   { key: '/inventory', icon: <InboxOutlined />, label: 'Ombor', roles: ['OWNER', 'MANAGER', 'STOCKKEEPER'] },
@@ -42,8 +48,9 @@ const NAV: NavItem[] = [
   { key: '/shifts', icon: <WalletOutlined />, label: 'Smena', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER'] },
 ];
 
+// Home routing ignores restaurant-only pages (business type unknown at login).
 export function allowedRoutes(role: AuthUser['role']): string[] {
-  return NAV.filter((n) => n.roles.includes(role)).map((n) => n.key);
+  return NAV.filter((n) => !n.restaurantOnly && n.roles.includes(role)).map((n) => n.key);
 }
 
 function BranchSelector() {
@@ -82,7 +89,11 @@ export default function AppLayout() {
     navigate('/login');
   };
 
-  const items = NAV.filter((n) => (user ? n.roles.includes(user.role) : false)).map((n) => ({
+  const org = useOrganization();
+  const isRestaurant = org.data?.businessType === 'RESTORAN';
+  const items = NAV.filter(
+    (n) => (user ? n.roles.includes(user.role) : false) && (!n.restaurantOnly || isRestaurant),
+  ).map((n) => ({
     key: n.key,
     icon: n.icon,
     label: <Link to={n.key}>{n.label}</Link>,

@@ -1,5 +1,6 @@
 import { App, Button, Card, Col, Empty, Input, InputNumber, List, Radio, Row, Space, Statistic, Typography } from 'antd';
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiErrorMessage } from '../../api/client';
 import { salesApi } from '../../api/endpoints';
@@ -19,6 +20,10 @@ export default function KassaPage() {
   const openShift = useOpenShift();
   const qc = useQueryClient();
   const { message } = App.useApp();
+
+  const [params] = useSearchParams();
+  const tableId = params.get('table') ?? undefined;
+  const tableName = params.get('tableName') ?? undefined;
 
   const [lines, setLines] = useState<Line[]>([]);
   const [provider, setProvider] = useState<'CASH' | 'CARD'>('CASH');
@@ -59,7 +64,8 @@ export default function KassaPage() {
     try {
       await salesApi.create({
         idempotencyKey: crypto.randomUUID(),
-        type: 'POS',
+        type: tableId ? 'DINE_IN' : 'POS',
+        ...(tableId ? { tableId } : {}),
         items: lines.map((l) => ({ productId: l.product.id, qty: l.qty })),
         payments: [{ provider, amount: total }],
       });
@@ -123,7 +129,7 @@ export default function KassaPage() {
       </Col>
 
       <Col xs={24} md={9}>
-        <Card title="Savat" style={{ position: 'sticky', top: 16 }}>
+        <Card title={tableName ? `Savat — ${tableName}` : 'Savat'} style={{ position: 'sticky', top: 16 }}>
           <List
             dataSource={lines}
             locale={{ emptyText: 'Savat bo‘sh' }}

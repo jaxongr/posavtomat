@@ -22,8 +22,38 @@ export const orgApi = {
   branches: () => api.get<{ data: Branch[] }>('/branches').then((r) => r.data.data),
   organization: () =>
     api
-      .get<{ data: { id: string; name: string; businessType: string; settings: unknown } }>('/organization')
+      .get<{ data: { id: string; name: string; businessType: 'DOKON' | 'RESTORAN'; settings: unknown } }>('/organization')
       .then((r) => r.data.data),
+};
+
+export interface DiningTable {
+  id: string;
+  name: string;
+  zone: string | null;
+  seats: number;
+  status: 'FREE' | 'OCCUPIED' | 'BILL';
+}
+
+export const tablesApi = {
+  list: () => api.get<{ data: DiningTable[] }>('/tables').then((r) => r.data.data),
+  create: (body: { name: string; zone?: string; seats?: number }) =>
+    api.post<{ data: DiningTable }>('/tables', body).then((r) => r.data.data),
+  setStatus: (id: string, status: string) =>
+    api.patch<{ data: DiningTable }>(`/tables/${id}/status`, { status }).then((r) => r.data.data),
+};
+
+export interface Kot {
+  id: string;
+  status: 'NEW' | 'COOKING' | 'READY' | 'SERVED';
+  items: { productId: string; name: string; qty: number }[];
+  sentAt: string;
+  sale: { id: string; table: { name: string } | null; staff: { fish: string } | null };
+}
+
+export const kitchenApi = {
+  kots: () => api.get<{ data: Kot[] }>('/kitchen/kots').then((r) => r.data.data),
+  setStatus: (id: string, status: string) =>
+    api.patch<{ data: Kot }>(`/kitchen/kots/${id}/status`, { status }).then((r) => r.data.data),
 };
 
 export const catalogApi = {
@@ -51,6 +81,7 @@ export const inventoryApi = {
 export interface CreateSaleBody {
   idempotencyKey: string;
   type: 'POS' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
+  tableId?: string;
   items: { productId: string; qty: number }[];
   payments: { provider: 'CASH' | 'CARD'; amount: number }[];
 }
