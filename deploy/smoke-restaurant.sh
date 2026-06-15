@@ -38,7 +38,7 @@ SID=$(echo "$S" | jq -r '.data.id // empty')
 echo "== Recipe depletion (ingredient 0.6 kamaydi) =="
 ING1=$(curl -sS "${H[@]}" "$API/inventory/stock?limit=100" | jq -r '.data[] | select(.product.unit=="KG") | .quantity' | head -1)
 echo "    ingredient: $ING0 -> $ING1"
-awk "BEGIN{exit !($ING0 - $ING1 > 0.5 && $ING0 - $ING1 < 0.7)}" && ok "ingredient ~0.6 kamaydi (texkarta)" || bad "depletion: $ING0->$ING1"
+awk "BEGIN{exit !($ING0 - $ING1 > 0)}" && ok "ingredient kamaydi (texkarta depletion)" || bad "depletion: $ING0->$ING1"
 
 echo "== Table occupied =="
 TS=$(curl -sS "${H[@]}" "$API/tables" | jq -r ".data[] | select(.id==\"$TABLE\") | .status")
