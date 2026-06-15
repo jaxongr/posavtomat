@@ -68,6 +68,57 @@ export class ReportsService {
     };
   }
 
+  /** Profit report over a date range: revenue, cost, profit + top by profit. */
+  async profit(fromIso: string | undefined, toIso: string | undefined, ctx: TenantContext) {
+    const to = toIso ? new Date(toIso) : new Date();
+    const from = fromIso ? new Date(fromIso) : new Date(to.getTime() - 30 * 24 * 3600 * 1000);
+
+    const items = await this.prisma.saleItem.findMany({
+      where: {
+        sale: {
+          organizationId: ctx.orgId,
+          branchId: ctx.branchId,
+          status: SaleStatus.COMPLETED,
+          completedAt: { gte: from, lte: to },
+        },
+      },
+      select: { productId: true, qty: true, price: true, cost: true, product: { select: { name: true } } },
+    });
+
+    let revenue = Money.zero();
+    let cost = Money.zero();
+    const byProduct = new Map<string, { name: string; revenue: Money; profit: Money; qty: number }>();
+
+    for (const it of items) {
+      const lineRev = Money.of(it.price).multiply(it.qty.toString());
+      const lineCost = Money.of(it.cost).multiply(it.qty.toString());
+      const lineProfit = lineRev.subtract(lineCost.toString());
+      revenue = revenue.add(lineRev.toString());
+      cost = cost.add(lineCost.toString());
+      const prev = byProduct.get(it.productId) ?? { name: it.product.name, revenue: Money.zero(), profit: Money.zero(), qty: 0 };
+      byProduct.set(it.productId, {
+        name: it.product.name,
+        revenue: prev.revenue.add(lineRev.toString()),
+        profit: prev.profit.add(lineProfit.toString()),
+        qty: prev.qty + Number(it.qty),
+      });
+    }
+
+    const topByProfit = [...byProduct.entries()]
+      .map(([productId, v]) => ({ productId, name: v.name, qty: v.qty, revenue: v.revenue.toString(), profit: v.profit.toString() }))
+      .sort((a, b) => Number(b.profit) - Number(a.profit))
+      .slice(0, 20);
+
+    return {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      revenue: revenue.toString(),
+      cost: cost.toString(),
+      profit: revenue.subtract(cost.toString()).toString(),
+      topByProfit,
+    };
+  }
+
   /** Sales history (cursor-paginated). */
   async sales(query: PaginationDto, ctx: TenantContext) {
     const rows = await this.prisma.sale.findMany({

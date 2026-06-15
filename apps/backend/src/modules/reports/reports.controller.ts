@@ -28,4 +28,11 @@ export class ReportsController {
   sales(@Query() query: PaginationDto, @Tenant() ctx: TenantContext) {
     return this.reports.sales(query, ctx);
   }
+
+  @Get('profit')
+  @Roles(Role.OWNER, Role.MANAGER)
+  @ApiOperation({ summary: 'Foyda hisoboti (sana oraliq)' })
+  profit(@Query('from') from: string, @Query('to') to: string, @Tenant() ctx: TenantContext) {
+    return this.reports.profit(from, to, ctx);
+  }
 }

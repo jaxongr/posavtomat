@@ -1,11 +1,14 @@
 import {
   AppstoreOutlined,
+  BarChartOutlined,
   DashboardOutlined,
   DownloadOutlined,
+  GiftOutlined,
   InboxOutlined,
   LogoutOutlined,
   ShoppingCartOutlined,
   ShoppingOutlined,
+  SmileOutlined,
   TeamOutlined,
   WalletOutlined,
 } from '@ant-design/icons';
@@ -32,6 +35,9 @@ const NAV: NavItem[] = [
   { key: '/inventory', icon: <InboxOutlined />, label: 'Ombor', roles: ['OWNER', 'MANAGER', 'STOCKKEEPER'] },
   { key: '/purchase', icon: <DownloadOutlined />, label: 'Kirim', roles: ['OWNER', 'MANAGER', 'STOCKKEEPER'] },
   { key: '/sales', icon: <ShoppingOutlined />, label: 'Savdo tarixi', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER', 'COOK'] },
+  { key: '/reports', icon: <BarChartOutlined />, label: 'Hisobotlar', roles: ['OWNER', 'MANAGER'] },
+  { key: '/discounts', icon: <GiftOutlined />, label: 'Chegirmalar', roles: ['OWNER', 'MANAGER'] },
+  { key: '/customers', icon: <SmileOutlined />, label: 'Mijozlar', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER'] },
   { key: '/staff', icon: <TeamOutlined />, label: 'Hodimlar', roles: ['OWNER', 'MANAGER'] },
   { key: '/shifts', icon: <WalletOutlined />, label: 'Smena', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER'] },
 ];

@@ -1,4 +1,4 @@
-import { App, Button, Card, Col, Empty, InputNumber, List, Radio, Row, Space, Statistic, Typography } from 'antd';
+import { App, Button, Card, Col, Empty, Input, InputNumber, List, Radio, Row, Space, Statistic, Typography } from 'antd';
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiErrorMessage } from '../../api/client';
@@ -40,6 +40,19 @@ export default function KassaPage() {
   const setQty = (id: string, qty: number) =>
     setLines((prev) => (qty <= 0 ? prev.filter((l) => l.product.id !== id) : prev.map((l) => (l.product.id === id ? { ...l, qty } : l))));
 
+  // Barcode scanner (keyboard-wedge): types the code + Enter → add the match.
+  const onScan = (code: string) => {
+    const value = code.trim();
+    if (!value) return;
+    const all = products.data?.data ?? [];
+    const match = all.find((p) => p.barcode === value) ?? all.find((p) => p.name.toLowerCase().includes(value.toLowerCase()));
+    if (match) {
+      add(match);
+    } else {
+      message.warning(`Topilmadi: ${value}`);
+    }
+  };
+
   const checkout = async () => {
     if (!lines.length) return;
     setPaying(true);
@@ -76,7 +89,16 @@ export default function KassaPage() {
   return (
     <Row gutter={16}>
       <Col xs={24} md={15}>
-        <Typography.Title level={4}>Mahsulotlar</Typography.Title>
+        <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Typography.Title level={4} style={{ margin: 0 }}>Mahsulotlar</Typography.Title>
+          <Input.Search
+            placeholder="Barkod skan / qidirish"
+            allowClear
+            enterButton
+            style={{ width: 280 }}
+            onSearch={onScan}
+          />
+        </Space>
         <QueryBoundary isLoading={products.isLoading} error={products.error} data={products.data} isEmpty={(d) => d.data.length === 0}>
           {(d) => (
             <Row gutter={[12, 12]}>

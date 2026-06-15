@@ -144,6 +144,17 @@ export class SalesService {
           },
         });
 
+        // Loyalty accrual: 1 point per 1000 UZS (no-op if customer not in org).
+        if (dto.customerId) {
+          const points = Math.floor(total.toNumber() / 1000);
+          if (points > 0) {
+            await tx.customer.updateMany({
+              where: { id: dto.customerId, organizationId: ctx.orgId },
+              data: { loyaltyPoints: { increment: points } },
+            });
+          }
+        }
+
         // Audit.
         await tx.auditLog.create({
           data: {

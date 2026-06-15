@@ -19,6 +19,8 @@ import { SalesModule } from './modules/sales/sales.module';
 import { ShiftsModule } from './modules/shifts/shifts.module';
 import { StaffModule } from './modules/staff/staff.module';
 import { ReportsModule } from './modules/reports/reports.module';
+import { DiscountsModule } from './modules/discounts/discounts.module';
+import { CustomersModule } from './modules/customers/customers.module';
 import { OrganizationModule } from './modules/organization/organization.module';
 import { HealthModule } from './modules/health/health.module';
 
@@ -40,6 +42,8 @@ import { HealthModule } from './modules/health/health.module';
     ShiftsModule,
     StaffModule,
     ReportsModule,
+    DiscountsModule,
+    CustomersModule,
     OrganizationModule,
     HealthModule,
   ],

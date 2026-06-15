@@ -67,10 +67,52 @@ export const shiftsApi = {
   close: (closeCash: number) => api.post<{ data: Shift }>('/shifts/close', { closeCash }).then((r) => r.data.data),
 };
 
+export interface ProfitReport {
+  from: string;
+  to: string;
+  revenue: string;
+  cost: string;
+  profit: string;
+  topByProfit: { productId: string; name: string; qty: number; revenue: string; profit: string }[];
+}
+
 export const reportsApi = {
   dashboard: () => api.get<{ data: DashboardData }>('/reports/dashboard').then((r) => r.data.data),
   sales: (params: { cursor?: string; limit?: number }) =>
     api.get<Page<SaleListRow>>('/reports/sales', { params }).then((r) => r.data),
+  profit: (from?: string, to?: string) =>
+    api.get<{ data: ProfitReport }>('/reports/profit', { params: { from, to } }).then((r) => r.data.data),
+};
+
+export interface Discount {
+  id: string;
+  name: string;
+  type: 'PERCENT' | 'FIXED';
+  value: string;
+  promoCode: string | null;
+  conditions: { minTotal?: number };
+  active: boolean;
+}
+
+export const discountsApi = {
+  list: () => api.get<{ data: Discount[] }>('/discounts').then((r) => r.data.data),
+  create: (body: { name: string; type: string; value: number; promoCode?: string; minTotal?: number }) =>
+    api.post<{ data: Discount }>('/discounts', body).then((r) => r.data.data),
+  remove: (id: string) => api.delete(`/discounts/${id}`).then((r) => r.data),
+};
+
+export interface Customer {
+  id: string;
+  fish: string;
+  phone: string | null;
+  loyaltyPoints: number;
+}
+
+export const customersApi = {
+  list: (search?: string) =>
+    api.get<{ data: Customer[] }>('/customers', { params: { search } }).then((r) => r.data.data),
+  create: (body: { fish: string; phone?: string; note?: string }) =>
+    api.post<{ data: Customer }>('/customers', body).then((r) => r.data.data),
 };
 
 export interface Supplier {
