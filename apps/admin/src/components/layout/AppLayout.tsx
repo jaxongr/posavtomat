@@ -61,7 +61,11 @@ function BranchSelector() {
   const branches = useBranches();
 
   useEffect(() => {
-    if (needsPicker && !branchId && branches.data?.length) {
+    if (!needsPicker || !branches.data?.length) return;
+    // Pick the first branch if none chosen OR the persisted one belongs to
+    // another organization (stale after switching accounts).
+    const valid = branches.data.some((b) => b.id === branchId);
+    if (!valid) {
       setBranch(branches.data[0].id);
     }
   }, [needsPicker, branchId, branches.data, setBranch]);
@@ -93,6 +97,7 @@ export default function AppLayout() {
 
   const logout = () => {
     clear();
+    qc.clear();
     navigate('/login');
   };
 

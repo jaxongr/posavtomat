@@ -1,6 +1,7 @@
 import { Button, Card, Form, Input, Typography, App } from 'antd';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { apiErrorMessage } from '../../api/client';
 import { authApi } from '../../api/endpoints';
 import { allowedRoutes } from '../../components/layout/AppLayout';
@@ -9,6 +10,7 @@ import { useAuthStore } from '../../store/auth.store';
 export default function LoginPage() {
   const navigate = useNavigate();
   const setAuth = useAuthStore((s) => s.setAuth);
+  const qc = useQueryClient();
   const { message } = App.useApp();
   const [loading, setLoading] = useState(false);
 
@@ -16,6 +18,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const tokens = await authApi.login(values.login, values.password);
+      qc.clear(); // drop any cached data from a previous account/org
       setAuth(tokens);
       const home = allowedRoutes(tokens.user.role)[0] ?? '/';
       navigate(home);
