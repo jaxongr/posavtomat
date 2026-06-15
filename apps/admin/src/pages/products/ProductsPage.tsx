@@ -3,10 +3,18 @@ import { useState } from 'react';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useCreateProduct, useDeleteProduct, useProducts } from '../../hooks/useCatalog';
 import type { Product } from '../../types';
+import RecipeEditor from './RecipeEditor';
+
+const TYPE_LABELS: Record<string, string> = {
+  GOODS: 'Mahsulot',
+  DISH: 'Taom',
+  INGREDIENT: 'Xom ashyo',
+};
 
 export default function ProductsPage() {
   const [search, setSearch] = useState('');
   const [open, setOpen] = useState(false);
+  const [recipeFor, setRecipeFor] = useState<Product | null>(null);
   const query = useProducts({ search: search || undefined });
   const createProduct = useCreateProduct();
   const deleteProduct = useDeleteProduct();
@@ -27,13 +35,20 @@ export default function ProductsPage() {
       title: 'Qoldiq',
       render: (_: unknown, r: Product) => r.stocks?.[0]?.quantity ?? '0',
     },
-    { title: 'Tur', dataIndex: 'type', render: (v: string) => <Tag>{v}</Tag> },
+    {
+      title: 'Tur',
+      dataIndex: 'type',
+      render: (v: string) => <Tag color={v === 'DISH' ? 'volcano' : v === 'INGREDIENT' ? 'gold' : 'default'}>{TYPE_LABELS[v] ?? v}</Tag>,
+    },
     {
       title: '',
       render: (_: unknown, r: Product) => (
-        <Button danger size="small" onClick={() => deleteProduct.mutate(r.id)}>
-          O‘chirish
-        </Button>
+        <Space>
+          {r.type === 'DISH' && (
+            <Button size="small" onClick={() => setRecipeFor(r)}>Texkarta</Button>
+          )}
+          <Button danger size="small" onClick={() => deleteProduct.mutate(r.id)}>O‘chirish</Button>
+        </Space>
       ),
     },
   ];
@@ -41,10 +56,10 @@ export default function ProductsPage() {
   return (
     <>
       <Space style={{ marginBottom: 16, justifyContent: 'space-between', width: '100%' }}>
-        <Typography.Title level={3} style={{ margin: 0 }}>Katalog</Typography.Title>
+        <Typography.Title level={3} style={{ margin: 0 }}>Katalog / Menyu</Typography.Title>
         <Space>
           <Input.Search placeholder="Qidirish" allowClear onSearch={setSearch} style={{ width: 240 }} />
-          <Button type="primary" onClick={() => setOpen(true)}>Mahsulot qo‘shish</Button>
+          <Button type="primary" onClick={() => setOpen(true)}>Qo‘shish</Button>
         </Space>
       </Space>
 
@@ -57,25 +72,46 @@ export default function ProductsPage() {
         {(d) => <Table rowKey="id" dataSource={d.data} columns={columns} pagination={false} />}
       </QueryBoundary>
 
-      <Modal title="Yangi mahsulot" open={open} onOk={onCreate} onCancel={() => setOpen(false)} confirmLoading={createProduct.isPending}>
-        <Form form={form} layout="vertical">
+      <Modal title="Yangi mahsulot / taom" open={open} onOk={onCreate} onCancel={() => setOpen(false)} confirmLoading={createProduct.isPending}>
+        <Form form={form} layout="vertical" initialValues={{ unit: 'DONA', type: 'GOODS' }}>
           <Form.Item name="name" label="Nomi" rules={[{ required: true }]}>
             <Input />
+          </Form.Item>
+          <Form.Item name="type" label="Turi" rules={[{ required: true }]} extra="Taom = restoran menyusi (texkarta bilan), Xom ashyo = ingredient">
+            <Select
+              options={[
+                { value: 'GOODS', label: 'Mahsulot (do‘kon)' },
+                { value: 'DISH', label: 'Taom (menyu)' },
+                { value: 'INGREDIENT', label: 'Xom ashyo (ingredient)' },
+              ]}
+            />
           </Form.Item>
           <Form.Item name="barcode" label="Barkod">
             <Input />
           </Form.Item>
-          <Form.Item name="unit" label="Birlik" initialValue="DONA">
+          <Form.Item name="unit" label="Birlik">
             <Select options={[{ value: 'DONA' }, { value: 'KG' }, { value: 'PORSIYA' }, { value: 'LITR' }]} />
           </Form.Item>
-          <Form.Item name="price" label="Narx" rules={[{ required: true }]}>
+          <Form.Item name="price" label="Narx (sotish)" rules={[{ required: true }]}>
             <InputNumber style={{ width: '100%' }} min={0} />
           </Form.Item>
           <Form.Item name="cost" label="Tannarx">
             <InputNumber style={{ width: '100%' }} min={0} />
           </Form.Item>
+          <Form.Item name="imageUrl" label="Rasm URL (ixtiyoriy)">
+            <Input placeholder="https://..." />
+          </Form.Item>
         </Form>
       </Modal>
+
+      {recipeFor && (
+        <RecipeEditor
+          dishProductId={recipeFor.id}
+          dishName={recipeFor.name}
+          open={Boolean(recipeFor)}
+          onClose={() => setRecipeFor(null)}
+        />
+      )}
     </>
   );
 }

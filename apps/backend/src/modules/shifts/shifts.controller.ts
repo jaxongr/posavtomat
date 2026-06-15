@@ -23,14 +23,14 @@ export class ShiftsController {
   }
 
   @Post('open')
-  @Roles(Role.CASHIER, Role.WAITER, Role.MANAGER, Role.OWNER)
+  @Roles(Role.CASHIER, Role.SELLER, Role.WAITER, Role.MANAGER, Role.OWNER)
   @ApiOperation({ summary: 'Smena ochish' })
   open(@Body() dto: OpenShiftDto, @CurrentUser() user: AuthUser, @Tenant() ctx: TenantContext) {
     return this.shifts.open(dto, user, ctx);
   }
 
   @Post('close')
-  @Roles(Role.CASHIER, Role.WAITER, Role.MANAGER, Role.OWNER)
+  @Roles(Role.CASHIER, Role.SELLER, Role.WAITER, Role.MANAGER, Role.OWNER)
   @ApiOperation({ summary: 'Smena yopish (Z-hisobot)' })
   close(@Body() dto: CloseShiftDto, @CurrentUser() user: AuthUser, @Tenant() ctx: TenantContext) {
     return this.shifts.close(dto, user, ctx);

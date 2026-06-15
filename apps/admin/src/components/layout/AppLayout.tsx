@@ -21,7 +21,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useBranches } from '../../hooks/useStaff';
 import { useOrganization } from '../../hooks/useRestaurant';
 import { useAuthStore } from '../../store/auth.store';
-import type { AuthUser } from '../../types';
+import { ROLE_LABELS, type AuthUser } from '../../types';
 
 const { Header, Sider, Content } = Layout;
 
@@ -37,14 +37,14 @@ const NAV: NavItem[] = [
   { key: '/', icon: <DashboardOutlined />, label: 'Boshqaruv', roles: ['OWNER', 'MANAGER'] },
   { key: '/tables', icon: <CoffeeOutlined />, label: 'Zal', roles: ['OWNER', 'MANAGER', 'WAITER'], restaurantOnly: true },
   { key: '/kds', icon: <FireOutlined />, label: 'Oshxona', roles: ['OWNER', 'MANAGER', 'COOK', 'WAITER'], restaurantOnly: true },
-  { key: '/kassa', icon: <ShoppingCartOutlined />, label: 'Kassa', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER'] },
+  { key: '/kassa', icon: <ShoppingCartOutlined />, label: 'Kassa', roles: ['OWNER', 'MANAGER', 'CASHIER', 'SELLER', 'WAITER'] },
   { key: '/products', icon: <AppstoreOutlined />, label: 'Katalog', roles: ['OWNER', 'MANAGER', 'STOCKKEEPER'] },
   { key: '/inventory', icon: <InboxOutlined />, label: 'Ombor', roles: ['OWNER', 'MANAGER', 'STOCKKEEPER'] },
   { key: '/purchase', icon: <DownloadOutlined />, label: 'Kirim', roles: ['OWNER', 'MANAGER', 'STOCKKEEPER'] },
-  { key: '/sales', icon: <ShoppingOutlined />, label: 'Savdo tarixi', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER', 'COOK'] },
+  { key: '/sales', icon: <ShoppingOutlined />, label: 'Savdo tarixi', roles: ['OWNER', 'MANAGER', 'CASHIER', 'SELLER', 'WAITER', 'COOK'] },
   { key: '/reports', icon: <BarChartOutlined />, label: 'Hisobotlar', roles: ['OWNER', 'MANAGER'] },
   { key: '/discounts', icon: <GiftOutlined />, label: 'Chegirmalar', roles: ['OWNER', 'MANAGER'] },
-  { key: '/customers', icon: <SmileOutlined />, label: 'Mijozlar', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER'] },
+  { key: '/customers', icon: <SmileOutlined />, label: 'Mijozlar', roles: ['OWNER', 'MANAGER', 'CASHIER', 'SELLER', 'WAITER'] },
   { key: '/staff', icon: <TeamOutlined />, label: 'Hodimlar', roles: ['OWNER', 'MANAGER'] },
   { key: '/shifts', icon: <WalletOutlined />, label: 'Smena', roles: ['OWNER', 'MANAGER', 'CASHIER', 'WAITER'] },
 ];
@@ -130,7 +130,7 @@ export default function AppLayout() {
         <Header style={{ background: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingInline: 24 }}>
           <BranchSelector />
           <Space>
-            <Typography.Text type="secondary">{user?.fish} — {user?.role}</Typography.Text>
+            <Typography.Text type="secondary">{user?.fish} — {user ? ROLE_LABELS[user.role] : ''}</Typography.Text>
           </Space>
         </Header>
         <Content style={{ margin: 24 }}>

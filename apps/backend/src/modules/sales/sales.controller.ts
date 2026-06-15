@@ -17,7 +17,7 @@ export class SalesController {
   constructor(private readonly sales: SalesService) {}
 
   @Post()
-  @Roles(Role.CASHIER, Role.WAITER, Role.MANAGER, Role.OWNER)
+  @Roles(Role.CASHIER, Role.SELLER, Role.WAITER, Role.MANAGER, Role.OWNER)
   @ApiOperation({ summary: 'Savdo yaratish (atomik, idempotent)' })
   create(@Body() dto: CreateSaleDto, @CurrentUser() user: AuthUser, @Tenant() ctx: TenantContext) {
     return this.sales.create(dto, user, ctx);

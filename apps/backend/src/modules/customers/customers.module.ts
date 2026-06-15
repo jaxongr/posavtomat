@@ -54,7 +54,7 @@ class CustomersController {
   }
 
   @Post()
-  @Roles(Role.OWNER, Role.MANAGER, Role.CASHIER, Role.WAITER)
+  @Roles(Role.OWNER, Role.MANAGER, Role.CASHIER, Role.SELLER, Role.WAITER)
   @ApiOperation({ summary: 'Mijoz qo‘shish' })
   create(@Body() dto: CreateCustomerDto, @Tenant() ctx: TenantContext) {
     return this.prisma.customer.create({

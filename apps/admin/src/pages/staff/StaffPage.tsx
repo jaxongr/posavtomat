@@ -2,9 +2,9 @@ import { Button, Form, Input, Modal, Select, Space, Table, Tag, Typography } fro
 import { useState } from 'react';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useBranches, useCreateStaff, useDeactivateStaff, useStaff } from '../../hooks/useStaff';
-import type { Staff } from '../../types';
+import { ROLE_LABELS, type Role, type Staff } from '../../types';
 
-const ROLES = ['OWNER', 'MANAGER', 'CASHIER', 'WAITER', 'COOK', 'STOCKKEEPER'];
+const ROLE_OPTIONS = (Object.keys(ROLE_LABELS) as Role[]).map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
 export default function StaffPage() {
   const staff = useStaff();
@@ -24,7 +24,7 @@ export default function StaffPage() {
   const columns = [
     { title: 'F.I.Sh.', dataIndex: 'fish' },
     { title: 'Telefon', dataIndex: 'phone', render: (v: string | null) => v ?? '—' },
-    { title: 'Rol', dataIndex: 'role', render: (v: string) => <Tag color="blue">{v}</Tag> },
+    { title: 'Rol', dataIndex: 'role', render: (v: Role) => <Tag color="blue">{ROLE_LABELS[v] ?? v}</Tag> },
     {
       title: 'Holat',
       dataIndex: 'active',
@@ -57,7 +57,7 @@ export default function StaffPage() {
             <Input placeholder="+998..." />
           </Form.Item>
           <Form.Item name="role" label="Rol" rules={[{ required: true }]}>
-            <Select options={ROLES.map((r) => ({ value: r }))} />
+            <Select options={ROLE_OPTIONS} />
           </Form.Item>
           <Form.Item name="branchId" label="Filial">
             <Select

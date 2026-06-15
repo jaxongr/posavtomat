@@ -1,7 +1,19 @@
+export type Role = 'OWNER' | 'MANAGER' | 'CASHIER' | 'SELLER' | 'WAITER' | 'COOK' | 'STOCKKEEPER';
+
+export const ROLE_LABELS: Record<Role, string> = {
+  OWNER: 'Egasi',
+  MANAGER: 'Menejer',
+  CASHIER: 'Kassir',
+  SELLER: 'Sotuvchi',
+  WAITER: 'Ofitsiant',
+  COOK: 'Oshpaz',
+  STOCKKEEPER: 'Omborchi',
+};
+
 export interface AuthUser {
   id: string;
   fish: string;
-  role: 'OWNER' | 'MANAGER' | 'CASHIER' | 'WAITER' | 'COOK' | 'STOCKKEEPER';
+  role: Role;
   organizationId: string;
   branchId: string | null;
 }

@@ -56,6 +56,23 @@ export const kitchenApi = {
     api.patch<{ data: Kot }>(`/kitchen/kots/${id}/status`, { status }).then((r) => r.data.data),
 };
 
+export interface Recipe {
+  id: string;
+  dishProductId: string;
+  items: {
+    ingredientId: string;
+    qty: string;
+    ingredient: { id: string; name: string; unit: string; cost: string };
+  }[];
+}
+
+export const recipesApi = {
+  get: (dishProductId: string) =>
+    api.get<{ data: Recipe | null }>(`/recipes/${dishProductId}`).then((r) => r.data.data),
+  set: (dishProductId: string, items: { ingredientId: string; qty: number }[]) =>
+    api.put<{ data: Recipe }>(`/recipes/${dishProductId}`, { items }).then((r) => r.data.data),
+};
+
 export const catalogApi = {
   getProducts: (params: { cursor?: string; limit?: number; search?: string; categoryId?: string }) =>
     api.get<Page<Product>>('/products', { params }).then((r) => r.data),

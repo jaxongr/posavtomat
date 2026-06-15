@@ -58,7 +58,18 @@ export type ErrorCode = keyof typeof ERROR_CODES;
 
 // ─────────────────────────── DOMAIN ENUMS ───────────────────────────
 export type BusinessType = 'DOKON' | 'RESTORAN';
-export type Role = 'OWNER' | 'MANAGER' | 'CASHIER' | 'WAITER' | 'COOK' | 'STOCKKEEPER';
+export type Role = 'OWNER' | 'MANAGER' | 'CASHIER' | 'SELLER' | 'WAITER' | 'COOK' | 'STOCKKEEPER';
+
+/** Uzbek display labels for roles. */
+export const ROLE_LABELS: Record<Role, string> = {
+  OWNER: 'Egasi',
+  MANAGER: 'Menejer',
+  CASHIER: 'Kassir',
+  SELLER: 'Sotuvchi',
+  WAITER: 'Ofitsiant',
+  COOK: 'Oshpaz',
+  STOCKKEEPER: 'Omborchi',
+};
 export type Unit = 'DONA' | 'KG' | 'PORSIYA' | 'LITR';
 export type ProductType = 'GOODS' | 'DISH' | 'INGREDIENT';
 export type SaleType = 'POS' | 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';

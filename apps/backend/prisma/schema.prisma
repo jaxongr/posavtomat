@@ -25,6 +25,7 @@ enum Role {
   OWNER
   MANAGER
   CASHIER
+  SELLER // do'kon sotuvchisi (kassir kabi sotadi)
   WAITER
   COOK
   STOCKKEEPER

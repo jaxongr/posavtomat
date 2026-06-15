@@ -62,6 +62,16 @@ async function main() {
     },
   });
 
+  await prisma.staff.upsert({
+    where: { id: 'a0000000-0000-4000-8000-000000000103' },
+    update: {},
+    create: {
+      id: 'a0000000-0000-4000-8000-000000000103', organizationId: org.id, branchId: branch.id,
+      fish: 'Sotuvchi Tursunov', phone: '+998901112266', role: 'SELLER',
+      passwordHash: hashSecret('sotuvchi123'), pinHash: hashSecret('3333'),
+    },
+  });
+
   const category = await prisma.category.upsert({
     where: { id: 'a0000000-0000-4000-8000-000000000200' },
     update: {},

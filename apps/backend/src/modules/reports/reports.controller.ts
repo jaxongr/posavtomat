@@ -23,7 +23,7 @@ export class ReportsController {
   }
 
   @Get('sales')
-  @Roles(Role.OWNER, Role.MANAGER, Role.CASHIER, Role.WAITER)
+  @Roles(Role.OWNER, Role.MANAGER, Role.CASHIER, Role.SELLER, Role.WAITER)
   @ApiOperation({ summary: 'Savdo tarixi (cursor)' })
   sales(@Query() query: PaginationDto, @Tenant() ctx: TenantContext) {
     return this.reports.sales(query, ctx);
