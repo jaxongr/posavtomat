@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { SaleStatus } from '@prisma/client';
+import { Role, SaleStatus } from '@prisma/client';
 import { buildPage, PaginationDto } from '../../common/dto/pagination.dto';
 import { Money } from '../../common/money/money';
-import { TenantContext } from '../../common/types/auth.types';
+import { AuthUser, TenantContext } from '../../common/types/auth.types';
 import { PrismaService } from '../../prisma/prisma.service';
 
 @Injectable()
@@ -151,10 +151,18 @@ export class ReportsService {
       .sort((a, b) => Number(b.total) - Number(a.total));
   }
 
-  /** Sales history (cursor-paginated). */
-  async sales(query: PaginationDto, ctx: TenantContext) {
+  /**
+   * Sales history (cursor-paginated). Cashiers/sellers/waiters see only their
+   * own sales; owners/managers see the whole branch.
+   */
+  async sales(query: PaginationDto, ctx: TenantContext, user: AuthUser) {
+    const ownOnly = user.role === Role.CASHIER || user.role === Role.SELLER || user.role === Role.WAITER || user.role === Role.COOK;
     const rows = await this.prisma.sale.findMany({
-      where: { organizationId: ctx.orgId, branchId: ctx.branchId },
+      where: {
+        organizationId: ctx.orgId,
+        branchId: ctx.branchId,
+        ...(ownOnly ? { staffId: user.id } : {}),
+      },
       select: {
         id: true,
         type: true,
