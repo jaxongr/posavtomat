@@ -1,9 +1,11 @@
 import { App, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Space, Statistic, Table, Tag, Typography } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { apiErrorMessage } from '../../api/client';
 import { adminApi, type AdminOrg } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
+import { useAuthStore } from '../../store/auth.store';
 import BusinessDetailDrawer from './BusinessDetailDrawer';
 
 const stateTag: Record<string, { color: string; label: string }> = {
@@ -15,7 +17,20 @@ const stateTag: Record<string, { color: string; label: string }> = {
 export default function SuperAdminPage() {
   const qc = useQueryClient();
   const { message } = App.useApp();
+  const navigate = useNavigate();
+  const enterBusiness = useAuthStore((s) => s.enterBusiness);
   const orgsQ = useQuery({ queryKey: ['admin-orgs'], queryFn: adminApi.organizations });
+
+  const enter = async (r: AdminOrg) => {
+    try {
+      const tokens = await adminApi.impersonate(r.id);
+      enterBusiness(tokens);
+      qc.clear();
+      navigate('/');
+    } catch (e) {
+      message.error(apiErrorMessage(e));
+    }
+  };
   const [createOpen, setCreateOpen] = useState(false);
   const [subOrg, setSubOrg] = useState<AdminOrg | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -73,9 +88,10 @@ export default function SuperAdminPage() {
     {
       title: '',
       render: (_: unknown, r: AdminOrg) => (
-        <Space>
+        <Space wrap>
+          <Button size="small" type="primary" onClick={() => enter(r)}>Kirish</Button>
           <Button size="small" onClick={() => setDetailId(r.id)}>Ko‘rish</Button>
-          <Button size="small" type="primary" onClick={() => { setSubOrg(r); subForm.setFieldsValue({ plan: r.plan, price: Number(r.subscriptionPrice), addDays: 30 }); }}>Obuna</Button>
+          <Button size="small" onClick={() => { setSubOrg(r); subForm.setFieldsValue({ plan: r.plan, price: Number(r.subscriptionPrice), addDays: 30 }); }}>Obuna</Button>
           <Button size="small" danger={r.active} onClick={() => toggle.mutate(r.id)}>{r.active ? 'Bloklash' : 'Faollashtirish'}</Button>
         </Space>
       ),

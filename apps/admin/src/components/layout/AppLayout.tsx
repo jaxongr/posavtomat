@@ -16,7 +16,7 @@ import {
   TeamOutlined,
   WalletOutlined,
 } from '@ant-design/icons';
-import { Alert, Layout, Menu, Select, Space, Spin, Typography } from 'antd';
+import { Alert, Button, Layout, Menu, Select, Space, Spin, Typography } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
@@ -92,8 +92,14 @@ function BranchSelector() {
 export default function AppLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, branchId, clear } = useAuthStore();
+  const { user, branchId, clear, stash, exitBusiness } = useAuthStore();
   const qc = useQueryClient();
+
+  const backToAdmin = () => {
+    exitBusiness();
+    qc.clear();
+    navigate('/superadmin');
+  };
 
   // Tenant-scoped queries send x-branch-id; refetch everything when it changes.
   useEffect(() => {
@@ -139,6 +145,15 @@ export default function AppLayout() {
             <Typography.Text type="secondary">{user?.fish} — {user ? ROLE_LABELS[user.role] : ''}</Typography.Text>
           </Space>
         </Header>
+        {stash && (
+          <Alert
+            banner
+            type="info"
+            showIcon
+            message="Siz super-admin sifatida biznes egasi ko‘rinishidasiz"
+            action={<Button size="small" onClick={backToAdmin}>← Boshqaruvga qaytish</Button>}
+          />
+        )}
         {sub && sub.state !== 'active' && user?.role !== 'SUPERADMIN' && (
           <Alert
             banner

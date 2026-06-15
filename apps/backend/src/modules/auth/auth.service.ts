@@ -63,6 +63,11 @@ export class AuthService {
     return this.issueTokens(staff);
   }
 
+  /** Issue tokens for a given staff (used by super-admin impersonation). */
+  async tokensFor(staff: Staff): Promise<AuthTokens> {
+    return this.issueTokens(staff);
+  }
+
   private async issueTokens(staff: Staff): Promise<AuthTokens> {
     const base = {
       sub: staff.id,

@@ -92,6 +92,8 @@ export const adminApi = {
   setSubscription: (id: string, body: { plan?: string; price?: number; addDays?: number }) =>
     api.patch(`/admin/organizations/${id}/subscription`, body).then((r) => r.data.data),
   toggle: (id: string) => api.patch(`/admin/organizations/${id}/toggle`).then((r) => r.data.data),
+  impersonate: (id: string) =>
+    api.post<{ data: AuthTokens }>(`/admin/organizations/${id}/impersonate`).then((r) => r.data.data),
 };
 
 export interface DiningTable {

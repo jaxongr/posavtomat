@@ -11,6 +11,8 @@ import { Money } from '../../common/money/money';
 import { subscriptionStatus } from '../../common/subscription';
 import { AuthUser } from '../../common/types/auth.types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AuthModule } from '../auth/auth.module';
+import { AuthService } from '../auth/auth.service';
 
 class CreateBusinessDto {
   @ApiProperty({ example: 'Yangi Do‘kon' })
@@ -66,7 +68,22 @@ const DAY_MS = 86_400_000;
 @Roles(Role.SUPERADMIN)
 @Controller('admin')
 class AdminController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly auth: AuthService,
+  ) {}
+
+  @Post('organizations/:id/impersonate')
+  @ApiOperation({ summary: 'Biznesga egasi sifatida kirish (super-admin)' })
+  async impersonate(@Param('id', ParseUUIDPipe) id: string) {
+    const owner = await this.prisma.staff.findFirst({
+      where: { organizationId: id, role: Role.OWNER, active: true, deletedAt: null },
+    });
+    if (!owner) {
+      throw new BusinessException('E2001', 'Bu biznesda egasi topilmadi');
+    }
+    return this.auth.tokensFor(owner);
+  }
 
   @Get('organizations')
   @ApiOperation({ summary: 'Barcha bizneslar + obuna + savdo statistikasi' })
@@ -208,5 +225,5 @@ class AdminController {
   }
 }
 
-@Module({ controllers: [AdminController] })
+@Module({ imports: [AuthModule], controllers: [AdminController] })
 export class AdminModule {}
