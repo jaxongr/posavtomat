@@ -72,8 +72,12 @@ export class SalesService {
       subtotal = subtotal.add(line.lineTotal.toString());
     }
 
-    // 3. Resolve discount (optional promo code).
-    const discount = await this.resolveDiscount(dto.promoCode, subtotal, ctx);
+    // 3. Discount = customer personal % + optional promo code.
+    const discount = await this.computeDiscount(
+      subtotal,
+      { promoCode: dto.promoCode, customerId: dto.customerId },
+      ctx,
+    );
     const total = subtotal.subtract(discount.toString());
 
     // 4. Payments must cover the total exactly.
@@ -831,29 +835,4 @@ export class SalesService {
     });
   }
 
-  private async resolveDiscount(
-    promoCode: string | undefined,
-    subtotal: Money,
-    ctx: TenantContext,
-  ): Promise<Money> {
-    if (!promoCode) {
-      return Money.zero();
-    }
-    const discount = await this.prisma.discount.findFirst({
-      where: { organizationId: ctx.orgId, promoCode, active: true, deletedAt: null },
-    });
-    if (!discount) {
-      throw new BusinessException('E4401', 'Promokod yaroqsiz');
-    }
-    const conditions = (discount.conditions as { minTotal?: number }) ?? {};
-    if (conditions.minTotal && subtotal.lessThan(conditions.minTotal)) {
-      throw new BusinessException('E4401', 'Chegirma sharti bajarilmadi');
-    }
-    const value =
-      discount.type === 'PERCENT'
-        ? subtotal.percent(discount.value)
-        : Money.of(discount.value);
-    // Discount can't exceed the subtotal.
-    return value.greaterThan(subtotal.toString()) ? subtotal : value;
-  }
 }

@@ -21,7 +21,8 @@ interface Line {
 }
 
 export default function KassaPage() {
-  const products = useProducts({});
+  const [search, setSearch] = useState('');
+  const products = useProducts({ search: search || undefined });
   const { data: shift } = useCurrentShift();
   const openShift = useOpenShift();
   const qc = useQueryClient();
@@ -42,7 +43,12 @@ export default function KassaPage() {
   const [paying, setPaying] = useState(false);
   const customers = useCustomers();
 
-  const total = useMemo(() => lines.reduce((s, l) => s + Number(l.product.price) * l.qty, 0), [lines]);
+  const subtotal = useMemo(() => lines.reduce((s, l) => s + Number(l.product.price) * l.qty, 0), [lines]);
+  // Customer personal discount (matches backend: subtotal * % rounded to 2dp).
+  const selectedCustomer = customers.data?.find((c) => c.id === customerId);
+  const discountPct = selectedCustomer ? Number(selectedCustomer.discountPercent) : 0;
+  const discount = useMemo(() => (discountPct > 0 ? Math.round(subtotal * discountPct) / 100 : 0), [subtotal, discountPct]);
+  const total = Math.max(0, subtotal - discount);
 
   const add = (p: Product) =>
     setLines((prev) => {
@@ -58,17 +64,20 @@ export default function KassaPage() {
   const setQty = (id: string, qty: number) =>
     setLines((prev) => (qty <= 0 ? prev.filter((l) => l.product.id !== id) : prev.map((l) => (l.product.id === id ? { ...l, qty } : l))));
 
-  // Barcode scanner (keyboard-wedge): types the code + Enter → add the match.
+  // Barcode scan or search (Enter): exact barcode → add to cart; otherwise use
+  // the text to filter the catalog grid (server-side search over the full list).
   const onScan = (code: string) => {
     const value = code.trim();
-    if (!value) return;
-    const all = products.data?.data ?? [];
-    const match = all.find((p) => p.barcode === value) ?? all.find((p) => p.name.toLowerCase().includes(value.toLowerCase()));
-    if (match) {
-      add(match);
-    } else {
-      message.warning(`Topilmadi: ${value}`);
+    if (!value) {
+      setSearch('');
+      return;
     }
+    const exact = (products.data?.data ?? []).find((p) => p.barcode === value);
+    if (exact) {
+      add(exact);
+      return;
+    }
+    setSearch(value);
   };
 
   const checkout = async () => {
@@ -95,8 +104,8 @@ export default function KassaPage() {
         width: rc.width,
         receiptNo: sale.id.slice(0, 8),
         lines: lines.map((l) => ({ name: l.product.name, qty: l.qty, price: Number(l.product.price) })),
-        subtotal: total,
-        discount: 0,
+        subtotal,
+        discount,
         total,
         provider,
         paid: provider === 'CASH' && tendered ? tendered : total,
@@ -146,11 +155,12 @@ export default function KassaPage() {
         <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 8 }}>
           <Typography.Title level={4} style={{ margin: 0 }}>Mahsulotlar</Typography.Title>
           <Input.Search
-            placeholder="Barkod skan / qidirish"
+            placeholder="Barkod skan yoki nom bo‘yicha qidirish"
             allowClear
             enterButton
-            style={{ width: 280 }}
+            style={{ width: 300 }}
             onSearch={onScan}
+            onChange={(e) => { if (!e.target.value) setSearch(''); }}
           />
         </Space>
         <QueryBoundary isLoading={products.isLoading} error={products.error} data={products.data} isEmpty={(d) => d.data.length === 0}>
@@ -202,11 +212,26 @@ export default function KassaPage() {
             allowClear
             optionFilterProp="label"
             style={{ width: '100%', marginBottom: 8 }}
-            placeholder="Mijoz (loyalty) — ixtiyoriy"
+            placeholder="Mijoz (chegirma/qarz) — ixtiyoriy"
             value={customerId}
             onChange={setCustomerId}
-            options={(customers.data ?? []).map((c) => ({ value: c.id, label: `${c.fish}${c.phone ? ` (${c.phone})` : ''}` }))}
+            options={(customers.data ?? []).map((c) => ({
+              value: c.id,
+              label: `${c.fish}${c.phone ? ` (${c.phone})` : ''}${Number(c.discountPercent) > 0 ? ` — ${Number(c.discountPercent)}%` : ''}`,
+            }))}
           />
+          {discount > 0 && (
+            <div style={{ marginTop: 8 }}>
+              <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+                <Typography.Text type="secondary">Oraliq</Typography.Text>
+                <Typography.Text>{subtotal.toLocaleString()} so‘m</Typography.Text>
+              </Space>
+              <Space style={{ justifyContent: 'space-between', width: '100%' }}>
+                <Typography.Text type="secondary">Chegirma ({discountPct}%)</Typography.Text>
+                <Typography.Text style={{ color: '#16A34A' }}>−{discount.toLocaleString()} so‘m</Typography.Text>
+              </Space>
+            </div>
+          )}
           <Statistic title="Jami" value={total} suffix="so‘m" style={{ margin: '12px 0' }} />
           <Radio.Group value={provider} onChange={(e) => setProvider(e.target.value)} style={{ marginBottom: 12 }}>
             <Radio.Button value="CASH">Naqd</Radio.Button>
