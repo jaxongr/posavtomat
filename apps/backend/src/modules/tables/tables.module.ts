@@ -6,6 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Tenant } from '../../common/decorators/tenant.decorator';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RealtimeGateway } from '../../common/realtime/realtime.gateway';
 import { TenantContext } from '../../common/types/auth.types';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -38,7 +39,10 @@ class SetStatusDto {
 @UseGuards(TenantGuard)
 @Controller('tables')
 class TablesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeGateway,
+  ) {}
 
   @Get()
   @ApiOperation({ summary: 'Zal/stollar (holat bilan)' })
@@ -69,7 +73,9 @@ class TablesController {
   @ApiOperation({ summary: 'Stol holatini o‘zgartirish (band/bo‘sh)' })
   async setStatus(@Param('id', ParseUUIDPipe) id: string, @Body() dto: SetStatusDto, @Tenant() ctx: TenantContext) {
     await this.assert(id, ctx);
-    return this.prisma.diningTable.update({ where: { id }, data: { status: dto.status } });
+    const updated = await this.prisma.diningTable.update({ where: { id }, data: { status: dto.status } });
+    this.realtime.notify(ctx.orgId, ctx.branchId, ['tables']);
+    return updated;
   }
 
   @Delete(':id')

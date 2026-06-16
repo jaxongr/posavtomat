@@ -25,6 +25,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useBranches } from '../../hooks/useStaff';
 import { useOrganization } from '../../hooks/useRestaurant';
 import { useKotNotifier } from '../../hooks/useKotNotifier';
+import { useRealtime } from '../../hooks/useRealtime';
 import { useAuthStore } from '../../store/auth.store';
 import { ROLE_LABELS, type AuthUser } from '../../types';
 
@@ -126,6 +127,8 @@ export default function AppLayout() {
 
   // Role-aware kitchen sound: cook hears new orders, waiter hears "ready".
   useKotNotifier();
+  // Realtime: refetch instantly on server push (polling stays as fallback).
+  useRealtime();
   const items = NAV.filter(
     (n) => (user ? n.roles.includes(user.role) : false) && (!n.restaurantOnly || isRestaurant),
   ).map((n) => ({

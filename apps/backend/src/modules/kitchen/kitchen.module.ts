@@ -7,6 +7,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Tenant } from '../../common/decorators/tenant.decorator';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { TenantGuard } from '../../common/guards/tenant.guard';
+import { RealtimeGateway } from '../../common/realtime/realtime.gateway';
 import { AuthUser, TenantContext } from '../../common/types/auth.types';
 import { PrismaService } from '../../prisma/prisma.service';
 
@@ -21,7 +22,10 @@ class KotStatusDto {
 @UseGuards(TenantGuard)
 @Controller('kitchen')
 class KitchenController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly realtime: RealtimeGateway,
+  ) {}
 
   @Get('kots')
   @Roles(Role.OWNER, Role.MANAGER, Role.COOK, Role.WAITER)
@@ -72,7 +76,9 @@ class KitchenController {
     const data: { status: KotStatus; readyAt?: Date; servedAt?: Date } = { status: dto.status };
     if (dto.status === KotStatus.READY) data.readyAt = new Date();
     if (dto.status === KotStatus.SERVED) data.servedAt = new Date();
-    return this.prisma.kot.update({ where: { id }, data });
+    const updated = await this.prisma.kot.update({ where: { id }, data });
+    this.realtime.notify(ctx.orgId, ctx.branchId, ['kitchen', 'orders', 'tables']);
+    return updated;
   }
 }
 

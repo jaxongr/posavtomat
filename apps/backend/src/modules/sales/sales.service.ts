@@ -12,6 +12,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { BusinessException } from '../../common/exceptions/business.exception';
 import { canSell } from '../../common/subscription';
+import { RealtimeGateway } from '../../common/realtime/realtime.gateway';
 import { Money } from '../../common/money/money';
 import { Quantity } from '../../common/money/quantity';
 import { AuthUser, TenantContext } from '../../common/types/auth.types';
@@ -45,6 +46,7 @@ export class SalesService {
     private readonly stock: StockManager,
     private readonly shifts: ShiftsService,
     private readonly redis: RedisService,
+    private readonly realtime: RealtimeGateway,
   ) {}
 
   /**
@@ -189,6 +191,7 @@ export class SalesService {
       });
 
       await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
+      this.realtime.notify(ctx.orgId, ctx.branchId, ['kitchen', 'orders', 'tables']);
       this.logger.log(`Sale completed: ${sale.id} total=${total.toString()} branch=${ctx.branchId}`);
       return sale;
     } catch (err) {
@@ -371,6 +374,7 @@ export class SalesService {
       return created;
     });
     await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
+    this.realtime.notify(ctx.orgId, ctx.branchId, ['kitchen', 'orders', 'tables']);
     return this.getOrder(order.id, ctx);
   }
 
@@ -407,6 +411,7 @@ export class SalesService {
       await this.recomputeOrderTotals(tx, order.id, ctx);
     });
     await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
+    this.realtime.notify(ctx.orgId, ctx.branchId, ['kitchen', 'orders', 'tables']);
     return this.getOrder(order.id, ctx);
   }
 
@@ -477,6 +482,7 @@ export class SalesService {
       // Throws on invalid promo → rolls back, leaving the order unchanged.
       await this.recomputeOrderTotals(tx, orderId, ctx);
     });
+    this.realtime.notify(ctx.orgId, ctx.branchId, ['orders']);
     return this.getOrder(orderId, ctx);
   }
 
@@ -545,6 +551,7 @@ export class SalesService {
         data: { staffId: user.id, action: 'ORDER_PAY', entity: 'Sale', entityId: order.id, newValue: { total: total.toString() } as Prisma.InputJsonValue },
       });
     });
+    this.realtime.notify(ctx.orgId, ctx.branchId, ['kitchen', 'orders', 'tables']);
     this.logger.log(`Order paid: ${order.id} total=${total.toString()} branch=${ctx.branchId}`);
     return this.getOrder(order.id, ctx);
   }
@@ -576,6 +583,7 @@ export class SalesService {
       await tx.auditLog.create({ data: { staffId: user.id, action: 'ORDER_CANCEL', entity: 'Sale', entityId: order.id } });
     });
     await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
+    this.realtime.notify(ctx.orgId, ctx.branchId, ['kitchen', 'orders', 'tables']);
     return { id: order.id, status: 'CANCELLED' };
   }
 
