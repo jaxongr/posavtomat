@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { App } from 'antd';
 import { apiErrorMessage } from '../api/client';
-import { kitchenApi, orgApi, tablesApi } from '../api/endpoints';
+import { kitchenApi, ordersApi, orgApi, tablesApi } from '../api/endpoints';
 
 export const useOrganization = () =>
   useQuery({ queryKey: ['organization'], queryFn: orgApi.organization, staleTime: 10 * 60 * 1000 });
@@ -45,6 +45,9 @@ export const useSetTableStatus = () => {
 
 export const useKots = () =>
   useQuery({ queryKey: ['kots'], queryFn: kitchenApi.kots, refetchInterval: 4000 });
+
+export const useActiveOrders = () =>
+  useQuery({ queryKey: ['active-orders'], queryFn: ordersApi.active, refetchInterval: 5000 });
 
 export const useSetKotStatus = () => {
   const qc = useQueryClient();

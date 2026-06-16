@@ -1,4 +1,4 @@
-import { App, Button, Card, Col, Divider, Input, List, Modal, Radio, Row, Select, Space, Statistic, Tag, Typography } from 'antd';
+import { Alert, App, Button, Card, Col, Divider, Input, List, Modal, Radio, Row, Select, Space, Statistic, Tag, Typography } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
@@ -8,6 +8,7 @@ import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useProducts } from '../../hooks/useCatalog';
 import { useCustomers } from '../../hooks/useMarketing';
 import { useOrganization } from '../../hooks/useRestaurant';
+import { useAuthStore } from '../../store/auth.store';
 import { useSettings } from '../../store/settings.store';
 import type { Product } from '../../types';
 import { foodIcon } from '../../utils/foodIcon';
@@ -24,8 +25,29 @@ export default function OrderPage() {
   const autoPrint = useSettings((s) => s.autoPrint);
   const rc = useOrganization().data?.settings?.receipt ?? {};
   const products = useProducts({});
-  const orderQ = useQuery({ queryKey: ['order', tableId], queryFn: () => ordersApi.byTable(tableId), enabled: Boolean(tableId) });
+  const orderQ = useQuery({
+    queryKey: ['order', tableId],
+    queryFn: () => ordersApi.byTable(tableId),
+    enabled: Boolean(tableId),
+    refetchInterval: 5000,
+  });
   const order = orderQ.data;
+
+  // Waiters may only manage their own orders; show whose it is and lock actions.
+  const myId = useAuthStore((s) => s.user?.id);
+  const myRole = useAuthStore((s) => s.user?.role);
+  const isOthersOrder = Boolean(order) && myRole === 'WAITER' && order?.staffId !== myId;
+
+  // Kitchen status of the open order (from its tickets).
+  const kotStatus = useMemo(() => {
+    const kots = order?.kots ?? [];
+    const active = kots.filter((k) => k.status !== 'SERVED');
+    if (kots.length === 0) return null;
+    if (active.length === 0) return { label: 'Berildi', color: 'default' };
+    if (active.some((k) => k.status === 'NEW')) return { label: 'Oshxonaga tushdi', color: 'orange' };
+    if (active.some((k) => k.status === 'COOKING')) return { label: 'Tayyorlanmoqda', color: 'gold' };
+    return { label: '🔔 Tayyor', color: 'green' };
+  }, [order?.kots]);
 
   const customers = useCustomers();
   const [toSend, setToSend] = useState<{ product: Product; qty: number }[]>([]);
@@ -169,6 +191,7 @@ export default function OrderPage() {
       <Space style={{ marginBottom: 16, justifyContent: 'space-between', width: '100%' }}>
         <Typography.Title level={3} style={{ margin: 0 }}>
           {tableName} {order ? <Tag color="orange">Ochiq buyurtma</Tag> : <Tag color="green">Yangi</Tag>}
+          {kotStatus && <Tag color={kotStatus.color}>{kotStatus.label}</Tag>}
         </Typography.Title>
         <Button onClick={() => navigate('/tables')}>← Zalga qaytish</Button>
       </Space>
@@ -204,6 +227,15 @@ export default function OrderPage() {
 
         {/* Order */}
         <Col xs={24} md={10}>
+          {isOthersOrder && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={`Bu buyurtma ${order?.staff?.fish ?? 'boshqa ofitsiant'}ga tegishli`}
+              description="Faqat o‘sha ofitsiant yoki menejer o‘zgartira oladi."
+            />
+          )}
           {/* Customer + promo — works for both new and open orders. */}
           <Card title="Mijoz / chegirma" size="small" style={{ marginBottom: 16 }}>
             <Space direction="vertical" style={{ width: '100%' }}>
@@ -222,7 +254,7 @@ export default function OrderPage() {
               />
               <Input placeholder="Promokod (ixtiyoriy)" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
               {order && (
-                <Button block loading={savingCust} onClick={applyCustomer}>
+                <Button block loading={savingCust} onClick={applyCustomer} disabled={isOthersOrder}>
                   Mijoz / chegirmani qo‘llash
                 </Button>
               )}
@@ -250,7 +282,7 @@ export default function OrderPage() {
                 </List.Item>
               )}
             />
-            <Button type="primary" block style={{ marginTop: 8 }} disabled={!toSend.length} loading={sending} onClick={send}>
+            <Button type="primary" block style={{ marginTop: 8 }} disabled={!toSend.length || isOthersOrder} loading={sending} onClick={send}>
               Oshxonaga yuborish ({sendTotal.toLocaleString()} so‘m)
             </Button>
           </Card>
@@ -290,10 +322,10 @@ export default function OrderPage() {
                 <Divider style={{ margin: '12px 0' }} />
                 <Statistic title="Jami hisob" value={Number(order.total)} suffix="so‘m" />
                 <Space style={{ marginTop: 12, width: '100%' }} direction="vertical">
-                  <Button type="primary" size="large" block style={{ background: '#16A34A' }} onClick={() => setPayOpen(true)}>
+                  <Button type="primary" size="large" block style={{ background: isOthersOrder ? undefined : '#16A34A' }} disabled={isOthersOrder} onClick={() => setPayOpen(true)}>
                     Hisob — to‘lov
                   </Button>
-                  <Button danger block onClick={cancel}>Buyurtmani bekor qilish</Button>
+                  <Button danger block onClick={cancel} disabled={isOthersOrder}>Buyurtmani bekor qilish</Button>
                 </Space>
               </>
             ) : (

@@ -24,6 +24,13 @@ export class OrdersController {
     return this.sales.getOpenByTable(tableId, ctx);
   }
 
+  @Get('active')
+  @Roles(...SELL_ROLES)
+  @ApiOperation({ summary: 'Faol buyurtmalar + oshxona statuslari (ofitsiant: o‘ziniki, admin: hammasi)' })
+  active(@CurrentUser() user: AuthUser, @Tenant() ctx: TenantContext) {
+    return this.sales.listActiveOrders(user, ctx);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Buyurtma tafsiloti' })
   getOne(@Param('id', ParseUUIDPipe) id: string, @Tenant() ctx: TenantContext) {

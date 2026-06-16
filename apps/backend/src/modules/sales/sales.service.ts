@@ -5,6 +5,7 @@ import {
   PaymentStatus,
   Prisma,
   ProductType,
+  Role,
   SaleStatus,
   SaleType,
 } from '@prisma/client';
@@ -300,6 +301,16 @@ export class SalesService {
 
   // ═══════════════ RESTAURANT ORDER LIFECYCLE (pay-later) ═══════════════
 
+  /**
+   * A waiter may only act on orders they opened. Managers/owners/cashiers can
+   * service any table. Prevents waiters editing/closing each other's orders.
+   */
+  private assertOrderAccess(order: { staffId: string }, user: AuthUser): void {
+    if (user.role === Role.WAITER && order.staffId !== user.id) {
+      throw new BusinessException('E1002', 'Bu buyurtma boshqa ofitsiantga tegishli');
+    }
+  }
+
   /** Throws E1004 if the organization's subscription is fully expired (past grace). */
   private async assertSubscription(ctx: TenantContext): Promise<void> {
     const org = await this.prisma.organization.findUnique({
@@ -364,7 +375,7 @@ export class SalesService {
   }
 
   /** Append items to an open order; sends a new KOT; recomputes the total. */
-  async addItems(orderId: string, dto: AddItemsDto, _user: AuthUser, ctx: TenantContext) {
+  async addItems(orderId: string, dto: AddItemsDto, user: AuthUser, ctx: TenantContext) {
     const order = await this.prisma.sale.findFirst({
       where: { id: orderId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
       include: { items: true },
@@ -372,6 +383,7 @@ export class SalesService {
     if (!order) {
       throw new BusinessException('E2001', 'Ochiq buyurtma topilmadi');
     }
+    this.assertOrderAccess(order, user);
     const lines = await this.priceLines(dto.items, ctx);
 
     await this.prisma.$transaction(async (tx) => {
@@ -405,10 +417,33 @@ export class SalesService {
       include: {
         items: { include: { product: { select: { name: true } } } },
         customer: { select: { id: true, fish: true, phone: true, discountPercent: true } },
+        staff: { select: { fish: true } },
         kots: true,
       },
     });
     return order;
+  }
+
+  /**
+   * Active (OPEN) orders with their kitchen ticket statuses. A waiter sees only
+   * their own; manager/owner/cashier see all. Used by the live "Orders" board.
+   */
+  async listActiveOrders(user: AuthUser, ctx: TenantContext) {
+    return this.prisma.sale.findMany({
+      where: {
+        organizationId: ctx.orgId,
+        branchId: ctx.branchId,
+        status: SaleStatus.OPEN,
+        ...(user.role === Role.WAITER ? { staffId: user.id } : {}),
+      },
+      include: {
+        table: { select: { name: true } },
+        staff: { select: { fish: true } },
+        items: { include: { product: { select: { name: true } } } },
+        kots: { select: { id: true, status: true, sentAt: true, readyAt: true } },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
   }
 
   async getOrder(id: string, ctx: TenantContext) {
@@ -417,6 +452,7 @@ export class SalesService {
       include: {
         items: { include: { product: { select: { name: true } } } },
         customer: { select: { id: true, fish: true, phone: true, discountPercent: true } },
+        staff: { select: { fish: true } },
         payments: true,
         kots: true,
       },
@@ -424,14 +460,15 @@ export class SalesService {
   }
 
   /** Attach/clear a customer (personal discount) and/or promo on an open order. */
-  async setOrderCustomer(orderId: string, dto: SetOrderCustomerDto, _user: AuthUser, ctx: TenantContext) {
+  async setOrderCustomer(orderId: string, dto: SetOrderCustomerDto, user: AuthUser, ctx: TenantContext) {
     const order = await this.prisma.sale.findFirst({
       where: { id: orderId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
-      select: { id: true },
+      select: { id: true, staffId: true },
     });
     if (!order) {
       throw new BusinessException('E2001', 'Ochiq buyurtma topilmadi');
     }
+    this.assertOrderAccess(order, user);
     await this.prisma.$transaction(async (tx) => {
       await tx.sale.update({
         where: { id: orderId },
@@ -451,6 +488,7 @@ export class SalesService {
     if (!order) {
       throw new BusinessException('E2001', 'Ochiq buyurtma topilmadi');
     }
+    this.assertOrderAccess(order, user);
     const total = Money.of(order.total);
     let paid = Money.zero();
     for (const p of dto.payments) paid = paid.add(p.amount);

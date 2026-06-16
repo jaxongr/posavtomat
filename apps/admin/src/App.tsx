@@ -18,6 +18,7 @@ const DiscountsPage = lazy(() => import('./pages/discounts/DiscountsPage'));
 const CustomersPage = lazy(() => import('./pages/customers/CustomersPage'));
 const TablesPage = lazy(() => import('./pages/tables/TablesPage'));
 const OrderPage = lazy(() => import('./pages/order/OrderPage'));
+const OrdersPage = lazy(() => import('./pages/orders/OrdersPage'));
 const KdsPage = lazy(() => import('./pages/kitchen/KdsPage'));
 const SettingsPage = lazy(() => import('./pages/settings/SettingsPage'));
 const SuperAdminPage = lazy(() => import('./pages/superadmin/SuperAdminPage'));
@@ -65,6 +66,7 @@ export default function App() {
           <Route path="/discounts" element={<DiscountsPage />} />
           <Route path="/customers" element={<CustomersPage />} />
           <Route path="/tables" element={<TablesPage />} />
+          <Route path="/orders" element={<OrdersPage />} />
           <Route path="/order/:tableId" element={<OrderPage />} />
           <Route path="/kds" element={<KdsPage />} />
           <Route path="/settings" element={<SettingsPage />} />

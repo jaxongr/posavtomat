@@ -135,15 +135,29 @@ export interface Order {
   serviceCharge: string;
   total: string;
   tableId: string | null;
+  staffId: string;
+  staff: { fish: string } | null;
   promoCode: string | null;
   customer: { id: string; fish: string; phone: string | null; discountPercent: string } | null;
   items: { id: string; productId: string; qty: string; price: string; product: { name: string } }[];
   kots?: { id: string; status: string }[];
 }
 
+export interface ActiveOrder {
+  id: string;
+  total: string;
+  tableId: string | null;
+  createdAt: string;
+  table: { name: string } | null;
+  staff: { fish: string } | null;
+  items: { id: string; qty: string; product: { name: string } }[];
+  kots: { id: string; status: 'NEW' | 'COOKING' | 'READY' | 'SERVED'; sentAt: string; readyAt: string | null }[];
+}
+
 export const ordersApi = {
   byTable: (tableId: string) =>
     api.get<{ data: Order | null }>(`/orders/by-table/${tableId}`).then((r) => r.data.data),
+  active: () => api.get<{ data: ActiveOrder[] }>('/orders/active').then((r) => r.data.data),
   open: (body: { tableId: string; items: { productId: string; qty: number }[]; customerId?: string; promoCode?: string }) =>
     api.post<{ data: Order }>('/orders', body).then((r) => r.data.data),
   addItems: (id: string, items: { productId: string; qty: number }[]) =>
