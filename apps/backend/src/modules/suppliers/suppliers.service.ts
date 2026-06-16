@@ -56,6 +56,17 @@ export class SuppliersService {
       throw new BusinessException('E4102', 'Ba‘zi mahsulotlar katalogda yo‘q');
     }
 
+    // Supplier (if given) must belong to this tenant — never reference another org's.
+    if (dto.supplierId) {
+      const supplier = await this.prisma.supplier.findFirst({
+        where: { id: dto.supplierId, organizationId: ctx.orgId, deletedAt: null },
+        select: { id: true },
+      });
+      if (!supplier) {
+        throw new BusinessException('E2001', 'Yetkazib beruvchi topilmadi');
+      }
+    }
+
     let total = Money.zero();
     for (const item of dto.items) {
       total = total.add(Money.of(item.cost).multiply(item.qty).toString());

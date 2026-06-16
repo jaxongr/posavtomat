@@ -50,7 +50,7 @@ export class ReportsService {
       .sort((a, b) => Number(b[1].toString()) - Number(a[1].toString()))
       .slice(0, 5);
     const products = await this.prisma.product.findMany({
-      where: { id: { in: topIds.map(([id]) => id) } },
+      where: { id: { in: topIds.map(([id]) => id) }, organizationId: ctx.orgId },
       select: { id: true, name: true },
     });
     const nameById = new Map(products.map((p) => [p.id, p.name]));
@@ -136,7 +136,7 @@ export class ReportsService {
       _count: { _all: true },
     });
     const staff = await this.prisma.staff.findMany({
-      where: { id: { in: grouped.map((g) => g.staffId) } },
+      where: { id: { in: grouped.map((g) => g.staffId) }, organizationId: ctx.orgId },
       select: { id: true, fish: true, role: true },
     });
     const byId = new Map(staff.map((s) => [s.id, s]));
