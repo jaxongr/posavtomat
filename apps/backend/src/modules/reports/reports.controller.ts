@@ -39,8 +39,15 @@ export class ReportsController {
 
   @Get('staff')
   @Roles(Role.OWNER, Role.MANAGER)
-  @ApiOperation({ summary: 'Hodimlar bo‘yicha savdo hisoboti' })
+  @ApiOperation({ summary: 'Hodimlar bo‘yicha savdo hisoboti (o‘rtacha chek bilan)' })
   staffSales(@Query('from') from: string, @Query('to') to: string, @Tenant() ctx: TenantContext) {
     return this.reports.staffSales(from, to, ctx);
+  }
+
+  @Get('kitchen')
+  @Roles(Role.OWNER, Role.MANAGER)
+  @ApiOperation({ summary: 'Oshxona tayyorlash vaqti statistikasi (har buyurtma + o‘rtacha)' })
+  kitchen(@Query('from') from: string, @Query('to') to: string, @Tenant() ctx: TenantContext) {
+    return this.reports.kitchen(from, to, ctx);
   }
 }

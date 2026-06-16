@@ -250,6 +250,20 @@ export interface ProfitReport {
   topByProfit: { productId: string; name: string; qty: number; revenue: string; profit: string }[];
 }
 
+export interface KitchenReport {
+  count: number;
+  avgPrepMinutes: number;
+  orders: {
+    id: string;
+    table: string;
+    waiter: string;
+    items: string;
+    sentAt: string;
+    readyAt: string | null;
+    prepMinutes: number;
+  }[];
+}
+
 export const reportsApi = {
   dashboard: () => api.get<{ data: DashboardData }>('/reports/dashboard').then((r) => r.data.data),
   sales: (params: { cursor?: string; limit?: number }) =>
@@ -258,11 +272,13 @@ export const reportsApi = {
     api.get<{ data: ProfitReport }>('/reports/profit', { params: { from, to } }).then((r) => r.data.data),
   staff: (from?: string, to?: string) =>
     api
-      .get<{ data: { staffId: string; fish: string; role: string | null; salesCount: number; total: string }[] }>(
+      .get<{ data: { staffId: string; fish: string; role: string | null; salesCount: number; total: string; avgCheck: string }[] }>(
         '/reports/staff',
         { params: { from, to } },
       )
       .then((r) => r.data.data),
+  kitchen: (from?: string, to?: string) =>
+    api.get<{ data: KitchenReport }>('/reports/kitchen', { params: { from, to } }).then((r) => r.data.data),
 };
 
 export interface Discount {

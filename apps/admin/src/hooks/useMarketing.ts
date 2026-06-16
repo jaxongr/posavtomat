@@ -69,3 +69,6 @@ export const useProfit = (from?: string, to?: string) =>
 
 export const useStaffReport = (from?: string, to?: string) =>
   useQuery({ queryKey: ['staff-report', from, to], queryFn: () => reportsApi.staff(from, to) });
+
+export const useKitchenReport = (from?: string, to?: string) =>
+  useQuery({ queryKey: ['kitchen-report', from, to], queryFn: () => reportsApi.kitchen(from, to) });

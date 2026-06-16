@@ -141,14 +141,69 @@ export class ReportsService {
     });
     const byId = new Map(staff.map((s) => [s.id, s]));
     return grouped
-      .map((g) => ({
-        staffId: g.staffId,
-        fish: byId.get(g.staffId)?.fish ?? '—',
-        role: byId.get(g.staffId)?.role ?? null,
-        salesCount: g._count._all,
-        total: Money.of(g._sum.total ?? 0).toString(),
-      }))
+      .map((g) => {
+        const total = Money.of(g._sum.total ?? 0);
+        const count = g._count._all;
+        // Average check (o'rtacha chek) = total revenue / number of sales.
+        const avgCheck = count > 0 ? Money.of(total.toNumber() / count) : Money.zero();
+        return {
+          staffId: g.staffId,
+          fish: byId.get(g.staffId)?.fish ?? '—',
+          role: byId.get(g.staffId)?.role ?? null,
+          salesCount: count,
+          total: total.toString(),
+          avgCheck: avgCheck.toString(),
+        };
+      })
       .sort((a, b) => Number(b.total) - Number(a.total));
+  }
+
+  /**
+   * Kitchen performance over a date range: how long each ticket took from being
+   * sent to the kitchen until marked ready (readyAt − sentAt), plus the average.
+   */
+  async kitchen(fromIso: string | undefined, toIso: string | undefined, ctx: TenantContext) {
+    const to = toIso ? new Date(toIso) : new Date();
+    const from = fromIso ? new Date(fromIso) : new Date(to.getTime() - 30 * 24 * 3600 * 1000);
+
+    const kots = await this.prisma.kot.findMany({
+      where: {
+        readyAt: { not: null },
+        sentAt: { gte: from, lte: to },
+        sale: { organizationId: ctx.orgId, branchId: ctx.branchId },
+      },
+      select: {
+        id: true,
+        sentAt: true,
+        readyAt: true,
+        items: true,
+        sale: { select: { table: { select: { name: true } }, staff: { select: { fish: true } } } },
+      },
+      orderBy: { readyAt: 'desc' },
+      take: 200,
+    });
+
+    const orders = kots.map((k) => {
+      const mins = k.readyAt ? (k.readyAt.getTime() - k.sentAt.getTime()) / 60000 : 0;
+      const items = Array.isArray(k.items)
+        ? (k.items as { name?: string; qty?: number }[]).map((i) => `${i.name ?? '?'}×${i.qty ?? 1}`).join(', ')
+        : '';
+      return {
+        id: k.id,
+        table: k.sale.table?.name ?? 'Olib ketish',
+        waiter: k.sale.staff?.fish ?? '—',
+        items,
+        sentAt: k.sentAt.toISOString(),
+        readyAt: k.readyAt?.toISOString() ?? null,
+        prepMinutes: Math.round(mins * 10) / 10,
+      };
+    });
+    const avgPrepMinutes =
+      orders.length > 0
+        ? Math.round((orders.reduce((s, o) => s + o.prepMinutes, 0) / orders.length) * 10) / 10
+        : 0;
+
+    return { count: orders.length, avgPrepMinutes, orders };
   }
 
   /**

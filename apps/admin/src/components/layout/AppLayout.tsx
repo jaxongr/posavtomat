@@ -24,7 +24,7 @@ import { useEffect, type ReactNode } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useBranches } from '../../hooks/useStaff';
 import { useOrganization } from '../../hooks/useRestaurant';
-import { useReadyKotNotifier } from '../../hooks/useReadyKotNotifier';
+import { useKotNotifier } from '../../hooks/useKotNotifier';
 import { useAuthStore } from '../../store/auth.store';
 import { ROLE_LABELS, type AuthUser } from '../../types';
 
@@ -124,8 +124,8 @@ export default function AppLayout() {
   const isRestaurant = org.data?.businessType === 'RESTORAN';
   const sub = org.data?.subscription;
 
-  // Waiter signal: popup + beep when a kitchen ticket becomes READY.
-  useReadyKotNotifier();
+  // Role-aware kitchen sound: cook hears new orders, waiter hears "ready".
+  useKotNotifier();
   const items = NAV.filter(
     (n) => (user ? n.roles.includes(user.role) : false) && (!n.restaurantOnly || isRestaurant),
   ).map((n) => ({
