@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
 import { useCreateProduct, useDeleteProduct, useProducts } from '../../hooks/useCatalog';
 import type { Product } from '../../types';
+import { foodIcon } from '../../utils/foodIcon';
 import RecipeEditor from './RecipeEditor';
 
 const TYPE_LABELS: Record<string, string> = {
@@ -27,8 +28,20 @@ export default function ProductsPage() {
     form.resetFields();
   };
 
+  // Live type value so the "initial stock" field hides for dishes (no stock).
+  const typeValue = Form.useWatch('type', form) as Product['type'] | undefined;
+
   const columns = [
-    { title: 'Nomi', dataIndex: 'name' },
+    {
+      title: 'Nomi',
+      dataIndex: 'name',
+      render: (v: string, r: Product) => (
+        <span>
+          <span style={{ fontSize: 18, marginRight: 8 }}>{foodIcon(v, r.type)}</span>
+          {v}
+        </span>
+      ),
+    },
     { title: 'Barkod', dataIndex: 'barcode', render: (v: string | null) => v ?? '—' },
     { title: 'Narx', dataIndex: 'price', render: (v: string) => `${Number(v).toLocaleString()} so‘m` },
     {
@@ -98,6 +111,15 @@ export default function ProductsPage() {
           <Form.Item name="cost" label="Tannarx">
             <InputNumber style={{ width: '100%' }} min={0} />
           </Form.Item>
+          {typeValue !== 'DISH' && (
+            <Form.Item
+              name="initialStock"
+              label="Boshlang‘ich qoldiq (nechta bor)"
+              extra="Hozir omborda bor miqdor. Bo‘sh qoldirilsa — 0."
+            >
+              <InputNumber style={{ width: '100%' }} min={0} placeholder="0" />
+            </Form.Item>
+          )}
           <Form.Item name="imageUrl" label="Rasm URL (ixtiyoriy)">
             <Input placeholder="https://..." />
           </Form.Item>

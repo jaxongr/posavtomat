@@ -37,7 +37,7 @@ export interface Organization {
   id: string;
   name: string;
   businessType: 'DOKON' | 'RESTORAN';
-  settings: { receipt?: ReceiptConfig } & Record<string, unknown>;
+  settings: { receipt?: ReceiptConfig; serviceChargePercent?: number } & Record<string, unknown>;
   plan?: string;
   subscriptionPrice?: string;
   subscriptionEndsAt?: string | null;
@@ -47,7 +47,7 @@ export interface Organization {
 export const orgApi = {
   branches: () => api.get<{ data: Branch[] }>('/branches').then((r) => r.data.data),
   organization: () => api.get<{ data: Organization }>('/organization').then((r) => r.data.data),
-  update: (body: { name?: string; receipt?: ReceiptConfig }) =>
+  update: (body: { name?: string; receipt?: ReceiptConfig; serviceChargePercent?: number }) =>
     api.patch<{ data: Organization }>('/organization', body).then((r) => r.data.data),
   createBranch: (body: { name: string; address?: string }) =>
     api.post<{ data: Branch }>('/branches', body).then((r) => r.data.data),
@@ -117,7 +117,7 @@ export interface Kot {
   status: 'NEW' | 'COOKING' | 'READY' | 'SERVED';
   items: { productId: string; name: string; qty: number }[];
   sentAt: string;
-  sale: { id: string; table: { name: string } | null; staff: { fish: string } | null };
+  sale: { id: string; tableId: string | null; table: { name: string } | null; staff: { fish: string } | null };
 }
 
 export const kitchenApi = {
@@ -132,8 +132,11 @@ export interface Order {
   paidStatus: string;
   subtotal: string;
   discount: string;
+  serviceCharge: string;
   total: string;
   tableId: string | null;
+  promoCode: string | null;
+  customer: { id: string; fish: string; phone: string | null; discountPercent: string } | null;
   items: { id: string; productId: string; qty: string; price: string; product: { name: string } }[];
   kots?: { id: string; status: string }[];
 }
@@ -145,6 +148,8 @@ export const ordersApi = {
     api.post<{ data: Order }>('/orders', body).then((r) => r.data.data),
   addItems: (id: string, items: { productId: string; qty: number }[]) =>
     api.post<{ data: Order }>(`/orders/${id}/items`, { items }).then((r) => r.data.data),
+  setCustomer: (id: string, body: { customerId?: string; promoCode?: string }) =>
+    api.post<{ data: Order }>(`/orders/${id}/customer`, body).then((r) => r.data.data),
   pay: (id: string, payments: { provider: 'CASH' | 'CARD'; amount: number }[]) =>
     api.post<{ data: Order }>(`/orders/${id}/pay`, { payments }).then((r) => r.data.data),
   cancel: (id: string) => api.post(`/orders/${id}/cancel`).then((r) => r.data),
@@ -167,10 +172,21 @@ export const recipesApi = {
     api.put<{ data: Recipe }>(`/recipes/${dishProductId}`, { items }).then((r) => r.data.data),
 };
 
+export interface CreateProductBody {
+  name: string;
+  price: number;
+  type?: 'GOODS' | 'DISH' | 'INGREDIENT';
+  unit?: 'DONA' | 'KG' | 'PORSIYA' | 'LITR';
+  barcode?: string;
+  cost?: number;
+  imageUrl?: string;
+  initialStock?: number;
+}
+
 export const catalogApi = {
   getProducts: (params: { cursor?: string; limit?: number; search?: string; categoryId?: string }) =>
     api.get<Page<Product>>('/products', { params }).then((r) => r.data),
-  createProduct: (body: Partial<Product> & { name: string; price: number }) =>
+  createProduct: (body: CreateProductBody) =>
     api.post<{ data: Product }>('/products', body).then((r) => r.data.data),
   updateProduct: (id: string, body: Partial<Product>) =>
     api.patch<{ data: Product }>(`/products/${id}`, body).then((r) => r.data.data),
@@ -258,13 +274,16 @@ export interface Customer {
   phone: string | null;
   loyaltyPoints: number;
   debt: string;
+  discountPercent: string;
 }
 
 export const customersApi = {
   list: (search?: string) =>
     api.get<{ data: Customer[] }>('/customers', { params: { search } }).then((r) => r.data.data),
-  create: (body: { fish: string; phone?: string; note?: string }) =>
+  create: (body: { fish: string; phone?: string; note?: string; discountPercent?: number }) =>
     api.post<{ data: Customer }>('/customers', body).then((r) => r.data.data),
+  update: (id: string, body: { fish?: string; phone?: string; discountPercent?: number }) =>
+    api.patch<{ data: Customer }>(`/customers/${id}`, body).then((r) => r.data.data),
   repay: (id: string, amount: number) =>
     api.patch<{ data: Customer }>(`/customers/${id}/repay`, { amount }).then((r) => r.data.data),
 };

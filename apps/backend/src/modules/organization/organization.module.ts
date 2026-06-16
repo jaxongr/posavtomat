@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Module, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Prisma, Role } from '@prisma/client';
-import { IsBoolean, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsBoolean, IsIn, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
@@ -49,6 +49,10 @@ class UpdateOrgDto {
   @ApiProperty({ type: ReceiptSettingsDto })
   @IsOptional()
   receipt?: ReceiptSettingsDto;
+
+  @ApiPropertyOptional({ example: 10, description: 'Restoran xizmat haqi % (0 = yo‘q)' })
+  @IsOptional() @IsNumber({ maxDecimalPlaces: 2 }) @Min(0) @Max(100)
+  serviceChargePercent?: number;
 }
 
 @ApiTags('organization')
@@ -109,6 +113,9 @@ class OrganizationController {
     const settings = {
       ...current,
       ...(dto.receipt ? { receipt: { ...currentReceipt, ...dto.receipt } } : {}),
+      ...(dto.serviceChargePercent !== undefined
+        ? { serviceChargePercent: dto.serviceChargePercent }
+        : {}),
     } as Prisma.InputJsonValue;
     return this.prisma.organization.update({
       where: { id: user.organizationId },

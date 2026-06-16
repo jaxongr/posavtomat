@@ -1,7 +1,7 @@
 import { Body, Controller, Get, Module, Param, ParseUUIDPipe, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiProperty, ApiPropertyOptional, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
-import { IsInt, IsNumber, IsOptional, IsString, Min, MinLength } from 'class-validator';
+import { IsInt, IsNumber, IsOptional, IsString, Max, Min, MinLength } from 'class-validator';
 import { Money } from '../../common/money/money';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { Tenant } from '../../common/decorators/tenant.decorator';
@@ -21,10 +21,37 @@ class CreateCustomerDto {
   @IsString()
   phone?: string;
 
+  @ApiPropertyOptional({ example: 10, description: 'Shaxsiy doimiy chegirma %' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  discountPercent?: number;
+
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
   note?: string;
+}
+
+class UpdateCustomerDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MinLength(1)
+  fish?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ example: 10, description: 'Shaxsiy doimiy chegirma %' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 })
+  @Min(0)
+  @Max(100)
+  discountPercent?: number;
 }
 
 class AddPointsDto {
@@ -66,7 +93,38 @@ class CustomersController {
   @ApiOperation({ summary: 'Mijoz qo‘shish' })
   create(@Body() dto: CreateCustomerDto, @Tenant() ctx: TenantContext) {
     return this.prisma.customer.create({
-      data: { organizationId: ctx.orgId, fish: dto.fish, phone: dto.phone, note: dto.note },
+      data: {
+        organizationId: ctx.orgId,
+        fish: dto.fish,
+        phone: dto.phone,
+        note: dto.note,
+        ...(dto.discountPercent !== undefined
+          ? { discountPercent: Money.of(dto.discountPercent).toPrisma() }
+          : {}),
+      },
+    });
+  }
+
+  @Patch(':id')
+  @Roles(Role.OWNER, Role.MANAGER)
+  @ApiOperation({ summary: 'Mijozni tahrirlash (ism/telefon/chegirma %)' })
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdateCustomerDto, @Tenant() ctx: TenantContext) {
+    const found = await this.prisma.customer.findFirst({
+      where: { id, organizationId: ctx.orgId, deletedAt: null },
+      select: { id: true },
+    });
+    if (!found) {
+      throw new BusinessException('E2001', 'Mijoz topilmadi');
+    }
+    return this.prisma.customer.update({
+      where: { id },
+      data: {
+        ...(dto.fish !== undefined ? { fish: dto.fish } : {}),
+        ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
+        ...(dto.discountPercent !== undefined
+          ? { discountPercent: Money.of(dto.discountPercent).toPrisma() }
+          : {}),
+      },
     });
   }
 

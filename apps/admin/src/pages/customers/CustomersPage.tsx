@@ -4,18 +4,21 @@ import { useState } from 'react';
 import { apiErrorMessage } from '../../api/client';
 import { customersApi, type Customer } from '../../api/endpoints';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
-import { useCreateCustomer, useCustomers } from '../../hooks/useMarketing';
+import { useCreateCustomer, useCustomers, useUpdateCustomer } from '../../hooks/useMarketing';
 
 export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const query = useCustomers(search || undefined);
   const create = useCreateCustomer();
+  const updateCust = useUpdateCustomer();
   const qc = useQueryClient();
   const { message } = App.useApp();
   const [open, setOpen] = useState(false);
+  const [editCust, setEditCust] = useState<Customer | null>(null);
   const [repayCust, setRepayCust] = useState<Customer | null>(null);
   const [repayAmount, setRepayAmount] = useState(0);
   const [form] = Form.useForm();
+  const [editForm] = Form.useForm();
 
   const repay = useMutation({
     mutationFn: ({ id, amount }: { id: string; amount: number }) => customersApi.repay(id, amount),
@@ -35,10 +38,30 @@ export default function CustomersPage() {
     form.resetFields();
   };
 
+  const openEdit = (c: Customer) => {
+    setEditCust(c);
+    editForm.setFieldsValue({ fish: c.fish, phone: c.phone ?? '', discountPercent: Number(c.discountPercent) });
+  };
+
+  const onEdit = async () => {
+    if (!editCust) return;
+    const v = await editForm.validateFields();
+    await updateCust.mutateAsync({ id: editCust.id, ...v });
+    setEditCust(null);
+  };
+
   const columns = [
     { title: 'F.I.Sh.', dataIndex: 'fish' },
     { title: 'Telefon', dataIndex: 'phone', render: (v: string | null) => v ?? '—' },
     { title: 'Sodiqlik balli', dataIndex: 'loyaltyPoints', render: (v: number) => <Tag color="gold">{v} ball</Tag> },
+    {
+      title: 'Chegirma',
+      dataIndex: 'discountPercent',
+      render: (v: string) => {
+        const p = Number(v);
+        return p > 0 ? <Tag color="blue">{p}%</Tag> : <Tag>—</Tag>;
+      },
+    },
     {
       title: 'Qarz (nasiya)',
       dataIndex: 'debt',
@@ -49,10 +72,14 @@ export default function CustomersPage() {
     },
     {
       title: '',
-      render: (_: unknown, r: Customer) =>
-        Number(r.debt) > 0 && (
-          <Button size="small" onClick={() => { setRepayCust(r); setRepayAmount(Number(r.debt)); }}>Qarz to‘lash</Button>
-        ),
+      render: (_: unknown, r: Customer) => (
+        <Space>
+          <Button size="small" onClick={() => openEdit(r)}>Tahrirlash</Button>
+          {Number(r.debt) > 0 && (
+            <Button size="small" onClick={() => { setRepayCust(r); setRepayAmount(Number(r.debt)); }}>Qarz to‘lash</Button>
+          )}
+        </Space>
+      ),
     },
   ];
 
@@ -73,7 +100,20 @@ export default function CustomersPage() {
         <Form form={form} layout="vertical">
           <Form.Item name="fish" label="F.I.Sh." rules={[{ required: true }]}><Input /></Form.Item>
           <Form.Item name="phone" label="Telefon"><Input placeholder="+998..." /></Form.Item>
+          <Form.Item name="discountPercent" label="Shaxsiy chegirma (%)" extra="Buyurtmaga shu mijoz biriktirilsa avtomatik qo‘llanadi">
+            <InputNumber style={{ width: '100%' }} min={0} max={100} placeholder="0" addonAfter="%" />
+          </Form.Item>
           <Form.Item name="note" label="Izoh"><Input.TextArea rows={2} /></Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal title={`Mijozni tahrirlash — ${editCust?.fish ?? ''}`} open={Boolean(editCust)} onOk={onEdit} onCancel={() => setEditCust(null)} confirmLoading={updateCust.isPending} okText="Saqlash">
+        <Form form={editForm} layout="vertical">
+          <Form.Item name="fish" label="F.I.Sh." rules={[{ required: true }]}><Input /></Form.Item>
+          <Form.Item name="phone" label="Telefon"><Input placeholder="+998..." /></Form.Item>
+          <Form.Item name="discountPercent" label="Shaxsiy chegirma (%)" extra="Buyurtmaga shu mijoz biriktirilsa avtomatik qo‘llanadi">
+            <InputNumber style={{ width: '100%' }} min={0} max={100} addonAfter="%" />
+          </Form.Item>
         </Form>
       </Modal>
 

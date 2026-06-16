@@ -37,6 +37,19 @@ export class AddItemsDto {
   items!: SaleItemInputDto[];
 }
 
+/** Attach a customer and/or promo code to an open order (recomputes discount). */
+export class SetOrderCustomerDto {
+  @ApiPropertyOptional({ description: 'Mijoz (shaxsiy chegirma + loyalty)' })
+  @IsOptional()
+  @IsUUID()
+  customerId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  promoCode?: string;
+}
+
 /** Close the bill — take payment(s) and complete the order. */
 export class PayOrderDto {
   @ApiProperty({ type: [PaymentInputDto] })

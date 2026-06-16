@@ -2,7 +2,7 @@ import { Button, Card, Col, Form, Input, InputNumber, Modal, Row, Space, Tag, Ty
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { QueryBoundary } from '../../components/common/QueryBoundary';
-import { useCreateTable, useTables } from '../../hooks/useRestaurant';
+import { useCreateTable, useKots, useTables } from '../../hooks/useRestaurant';
 import type { DiningTable } from '../../api/endpoints';
 
 const statusMeta: Record<string, { color: string; label: string }> = {
@@ -13,10 +13,16 @@ const statusMeta: Record<string, { color: string; label: string }> = {
 
 export default function TablesPage() {
   const query = useTables();
+  const kots = useKots();
   const create = useCreateTable();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [form] = Form.useForm();
+
+  // Tables that currently have a READY kitchen ticket → "ready" badge.
+  const readyTableIds = new Set(
+    (kots.data ?? []).filter((k) => k.status === 'READY' && k.sale.tableId).map((k) => k.sale.tableId as string),
+  );
 
   const onCreate = async () => {
     const v = await form.validateFields();
@@ -42,16 +48,26 @@ export default function TablesPage() {
           <Row gutter={[16, 16]}>
             {tables.map((t) => {
               const m = statusMeta[t.status];
+              const ready = readyTableIds.has(t.id);
               return (
                 <Col xs={12} sm={8} md={6} lg={4} key={t.id}>
                   <Card
                     hoverable
                     onClick={() => onTableClick(t)}
-                    styles={{ body: { padding: 16, textAlign: 'center', borderTop: `4px solid ${m.color}` } }}
+                    styles={{
+                      body: {
+                        padding: 16,
+                        textAlign: 'center',
+                        borderTop: `4px solid ${ready ? '#16A34A' : m.color}`,
+                        ...(ready ? { boxShadow: '0 0 0 2px #16A34A inset' } : {}),
+                      },
+                    }}
                   >
                     <Typography.Title level={4} style={{ margin: 0 }}>{t.name}</Typography.Title>
                     <Typography.Text type="secondary">{t.zone ?? '—'} · {t.seats} o‘rin</Typography.Text>
-                    <div style={{ marginTop: 8 }}><Tag color={m.color}>{m.label}</Tag></div>
+                    <div style={{ marginTop: 8 }}>
+                      {ready ? <Tag color="#16A34A">🔔 Tayyor</Tag> : <Tag color={m.color}>{m.label}</Tag>}
+                    </div>
                     <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                       {t.status === 'FREE' ? 'Buyurtma ochish' : 'Hisob / qo‘shish'}
                     </Typography.Text>

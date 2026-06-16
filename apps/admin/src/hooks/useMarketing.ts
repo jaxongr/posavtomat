@@ -49,6 +49,20 @@ export const useCreateCustomer = () => {
   });
 };
 
+export const useUpdateCustomer = () => {
+  const qc = useQueryClient();
+  const { message } = App.useApp();
+  return useMutation({
+    mutationFn: ({ id, ...body }: { id: string; fish?: string; phone?: string; discountPercent?: number }) =>
+      customersApi.update(id, body),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['customers'] });
+      message.success('Mijoz yangilandi');
+    },
+    onError: (e) => message.error(apiErrorMessage(e)),
+  });
+};
+
 // ── Reports ──
 export const useProfit = (from?: string, to?: string) =>
   useQuery({ queryKey: ['profit', from, to], queryFn: () => reportsApi.profit(from, to) });

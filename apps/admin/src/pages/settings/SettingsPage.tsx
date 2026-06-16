@@ -1,4 +1,4 @@
-import { Button, Card, Divider, Form, Input, List, Select, Space, Switch, Typography } from 'antd';
+import { Button, Card, Divider, Form, Input, InputNumber, List, Select, Space, Switch, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import { printReceipt } from '../../utils/receipt';
 import { useOrganization, useUpdateOrg } from '../../hooks/useRestaurant';
@@ -24,6 +24,16 @@ export default function SettingsPage() {
   };
 
   const receipt = org.data?.settings?.receipt;
+  const isRestaurant = org.data?.businessType === 'RESTORAN';
+  const [svcPct, setSvcPct] = useState<number>(0);
+
+  useEffect(() => {
+    setSvcPct(Number(org.data?.settings?.serviceChargePercent ?? 0));
+  }, [org.data?.settings?.serviceChargePercent]);
+
+  const saveServiceCharge = async () => {
+    await update.mutateAsync({ serviceChargePercent: svcPct });
+  };
 
   useEffect(() => {
     form.setFieldsValue({
@@ -109,6 +119,27 @@ export default function SettingsPage() {
           <Switch checked={autoPrint} onChange={setAutoPrint} />
         </Space>
       </Card>
+
+      {isRestaurant && (
+        <Card title="Xizmat haqi (obsluzhivaniye)" style={{ maxWidth: 560, marginTop: 16 }}>
+          <Typography.Paragraph type="secondary" style={{ marginTop: 0 }}>
+            Restoran (stol) buyurtmalariga avtomatik qo‘shiladigan xizmat haqi foizi. 0 = qo‘shilmaydi.
+          </Typography.Paragraph>
+          <Space>
+            <InputNumber
+              min={0}
+              max={100}
+              value={svcPct}
+              onChange={(v) => setSvcPct(Number(v ?? 0))}
+              addonAfter="%"
+              style={{ width: 160 }}
+            />
+            <Button type="primary" loading={update.isPending} onClick={saveServiceCharge}>
+              Saqlash
+            </Button>
+          </Space>
+        </Card>
+      )}
 
       {isOwner && (
         <Card title="Filiallar" style={{ maxWidth: 560, marginTop: 16 }}>

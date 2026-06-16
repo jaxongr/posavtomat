@@ -61,6 +61,12 @@ export class CreateProductDto {
   @IsOptional()
   @IsBoolean()
   trackStock?: boolean;
+
+  @ApiPropertyOptional({ example: 100, description: 'Boshlang‘ich qoldiq (joriy filialga)' })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 3 })
+  @Min(0)
+  initialStock?: number;
 }
 
 export class UpdateProductDto extends PartialType(CreateProductDto) {}

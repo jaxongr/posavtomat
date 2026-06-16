@@ -6,7 +6,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { Tenant } from '../../common/decorators/tenant.decorator';
 import { TenantGuard } from '../../common/guards/tenant.guard';
 import { AuthUser, TenantContext } from '../../common/types/auth.types';
-import { AddItemsDto, OpenOrderDto, PayOrderDto } from './dto/order.dto';
+import { AddItemsDto, OpenOrderDto, PayOrderDto, SetOrderCustomerDto } from './dto/order.dto';
 import { SalesService } from './sales.service';
 
 const SELL_ROLES = [Role.WAITER, Role.CASHIER, Role.SELLER, Role.MANAGER, Role.OWNER];
@@ -47,6 +47,18 @@ export class OrdersController {
     @Tenant() ctx: TenantContext,
   ) {
     return this.sales.addItems(id, dto, user, ctx);
+  }
+
+  @Post(':id/customer')
+  @Roles(...SELL_ROLES)
+  @ApiOperation({ summary: 'Ochiq buyurtmaga mijoz/promokod biriktirish (chegirma qayta hisoblanadi)' })
+  setCustomer(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetOrderCustomerDto,
+    @CurrentUser() user: AuthUser,
+    @Tenant() ctx: TenantContext,
+  ) {
+    return this.sales.setOrderCustomer(id, dto, user, ctx);
   }
 
   @Post(':id/pay')

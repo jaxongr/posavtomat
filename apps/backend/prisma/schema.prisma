@@ -487,8 +487,10 @@ model Sale {
   paidStatus     PaidStatus    @default(UNPAID)
   subtotal       Decimal       @default(0) @db.Decimal(14, 2)
   discount       Decimal       @default(0) @db.Decimal(14, 2)
+  serviceCharge  Decimal       @default(0) @db.Decimal(14, 2) // xizmat haqi (restoran)
   total          Decimal       @default(0) @db.Decimal(14, 2)
   idempotencyKey String? // savdo yakuni idempotent
+  promoCode      String? // ochiq buyurtmada chegirma qayta hisoblash uchun
   note           String?
   completedAt    DateTime?
   createdAt      DateTime      @default(now())
@@ -598,6 +600,7 @@ model Customer {
   phone          String?
   loyaltyPoints  Int          @default(0)
   debt           Decimal      @default(0) @db.Decimal(14, 2) // nasiya qarzi (so'm)
+  discountPercent Decimal     @default(0) @db.Decimal(5, 2) // shaxsiy doimiy chegirma %
   note           String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt

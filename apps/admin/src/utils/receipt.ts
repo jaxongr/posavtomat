@@ -14,6 +14,7 @@ export interface ReceiptData {
   lines: ReceiptLine[];
   subtotal: number;
   discount: number;
+  serviceCharge?: number;
   total: number;
   paid?: number;
   change?: number;
@@ -65,6 +66,7 @@ export function printReceipt(d: ReceiptData): void {
     <table>
       <tr><td>Oraliq:</td><td class="r">${money(d.subtotal)}</td></tr>
       ${d.discount > 0 ? `<tr><td>Chegirma:</td><td class="r">-${money(d.discount)}</td></tr>` : ''}
+      ${d.serviceCharge && d.serviceCharge > 0 ? `<tr><td>Xizmat haqi:</td><td class="r">+${money(d.serviceCharge)}</td></tr>` : ''}
       <tr class="tot"><td>JAMI:</td><td class="r">${money(d.total)} so‘m</td></tr>
       ${d.provider ? `<tr><td>To‘lov:</td><td class="r">${d.provider === 'CASH' ? 'Naqd' : d.provider === 'CARD' ? 'Karta' : d.provider === 'DEBT' ? 'Qarz (nasiya)' : d.provider}</td></tr>` : ''}
       ${d.paid !== undefined ? `<tr><td>Berildi:</td><td class="r">${money(d.paid)}</td></tr>` : ''}

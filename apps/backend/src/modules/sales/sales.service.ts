@@ -19,7 +19,7 @@ import { RedisService } from '../../redis/redis.service';
 import { StockManager } from '../inventory/stock.manager';
 import { ShiftsService } from '../shifts/shifts.service';
 import { CreateSaleDto, SaleItemInputDto } from './dto/create-sale.dto';
-import { AddItemsDto, OpenOrderDto, PayOrderDto } from './dto/order.dto';
+import { AddItemsDto, OpenOrderDto, PayOrderDto, SetOrderCustomerDto } from './dto/order.dto';
 
 interface PricedLine {
   input: SaleItemInputDto;
@@ -324,10 +324,6 @@ export class SalesService {
     }
 
     const lines = await this.priceLines(dto.items, ctx);
-    let subtotal = Money.zero();
-    for (const l of lines) subtotal = subtotal.add(l.lineTotal.toString());
-    const discount = await this.resolveDiscount(dto.promoCode, subtotal, ctx);
-    const total = subtotal.subtract(discount.toString());
 
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.sale.create({
@@ -337,12 +333,10 @@ export class SalesService {
           staffId: user.id,
           tableId: dto.tableId,
           customerId: dto.customerId,
+          promoCode: dto.promoCode,
           type: SaleType.DINE_IN,
           status: SaleStatus.OPEN,
           paidStatus: PaidStatus.UNPAID,
-          subtotal: subtotal.toPrisma(),
-          discount: discount.toPrisma(),
-          total: total.toPrisma(),
           items: {
             create: lines.map((l) => ({
               productId: l.productId,
@@ -361,6 +355,8 @@ export class SalesService {
         where: { id: dto.tableId, organizationId: ctx.orgId, branchId: ctx.branchId },
         data: { status: 'OCCUPIED' },
       });
+      // Discount (customer % + promo) and service charge are computed server-side.
+      await this.recomputeOrderTotals(tx, created.id, ctx);
       return created;
     });
     await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
@@ -395,15 +391,8 @@ export class SalesService {
       }
       await this.createKot(tx, order.id, lines);
 
-      // Recompute totals over existing + new items.
-      let subtotal = Money.zero();
-      for (const it of order.items) subtotal = subtotal.add(Money.of(it.price).multiply(it.qty.toString()).toString());
-      for (const l of lines) subtotal = subtotal.add(l.lineTotal.toString());
-      const total = subtotal.subtract(Money.of(order.discount).toString());
-      await tx.sale.update({
-        where: { id: order.id },
-        data: { subtotal: subtotal.toPrisma(), total: total.toPrisma() },
-      });
+      // Recompute subtotal/discount/service charge/total over existing + new items.
+      await this.recomputeOrderTotals(tx, order.id, ctx);
     });
     await this.redis.delPattern(`catalog:${ctx.orgId}:${ctx.branchId}:*`);
     return this.getOrder(order.id, ctx);
@@ -415,6 +404,7 @@ export class SalesService {
       where: { tableId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
       include: {
         items: { include: { product: { select: { name: true } } } },
+        customer: { select: { id: true, fish: true, phone: true, discountPercent: true } },
         kots: true,
       },
     });
@@ -424,8 +414,33 @@ export class SalesService {
   async getOrder(id: string, ctx: TenantContext) {
     return this.prisma.sale.findFirst({
       where: { id, organizationId: ctx.orgId, branchId: ctx.branchId },
-      include: { items: { include: { product: { select: { name: true } } } }, payments: true, kots: true },
+      include: {
+        items: { include: { product: { select: { name: true } } } },
+        customer: { select: { id: true, fish: true, phone: true, discountPercent: true } },
+        payments: true,
+        kots: true,
+      },
     });
+  }
+
+  /** Attach/clear a customer (personal discount) and/or promo on an open order. */
+  async setOrderCustomer(orderId: string, dto: SetOrderCustomerDto, _user: AuthUser, ctx: TenantContext) {
+    const order = await this.prisma.sale.findFirst({
+      where: { id: orderId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
+      select: { id: true },
+    });
+    if (!order) {
+      throw new BusinessException('E2001', 'Ochiq buyurtma topilmadi');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.sale.update({
+        where: { id: orderId },
+        data: { customerId: dto.customerId ?? null, promoCode: dto.promoCode ?? null },
+      });
+      // Throws on invalid promo → rolls back, leaving the order unchanged.
+      await this.recomputeOrderTotals(tx, orderId, ctx);
+    });
+    return this.getOrder(orderId, ctx);
   }
 
   /** Close the bill: take payment, complete the order, free the table. */
@@ -662,6 +677,104 @@ export class SalesService {
         refId: saleId,
       });
     }
+  }
+
+  /**
+   * Combined discount for an order: customer personal discount (%) + optional
+   * promo code, capped at the subtotal. Throws E4401 on an invalid promo.
+   */
+  private async computeDiscount(
+    subtotal: Money,
+    opts: { promoCode?: string | null; customerId?: string | null },
+    ctx: TenantContext,
+  ): Promise<Money> {
+    let discount = Money.zero();
+
+    if (opts.customerId) {
+      const customer = await this.prisma.customer.findFirst({
+        where: { id: opts.customerId, organizationId: ctx.orgId },
+        select: { discountPercent: true },
+      });
+      if (customer && Number(customer.discountPercent) > 0) {
+        discount = discount.add(subtotal.percent(customer.discountPercent).toString());
+      }
+    }
+
+    if (opts.promoCode) {
+      const promo = await this.prisma.discount.findFirst({
+        where: { organizationId: ctx.orgId, promoCode: opts.promoCode, active: true, deletedAt: null },
+      });
+      if (!promo) {
+        throw new BusinessException('E4401', 'Promokod yaroqsiz');
+      }
+      const conditions = (promo.conditions as { minTotal?: number }) ?? {};
+      if (conditions.minTotal && subtotal.lessThan(conditions.minTotal)) {
+        throw new BusinessException('E4401', 'Chegirma sharti bajarilmadi');
+      }
+      const promoVal =
+        promo.type === 'PERCENT' ? subtotal.percent(promo.value) : Money.of(promo.value);
+      discount = discount.add(promoVal.toString());
+    }
+
+    return discount.greaterThan(subtotal.toString()) ? subtotal : discount;
+  }
+
+  /** Restaurant service charge percent from org settings (0 if unset/invalid). */
+  private async serviceChargePercent(ctx: TenantContext): Promise<number> {
+    const org = await this.prisma.organization.findUnique({
+      where: { id: ctx.orgId },
+      select: { settings: true },
+    });
+    const settings = (org?.settings as Record<string, unknown> | null) ?? {};
+    const pct = Number(settings.serviceChargePercent ?? 0);
+    return Number.isFinite(pct) && pct > 0 ? pct : 0;
+  }
+
+  /**
+   * Recompute an open order's money from its current items + attached
+   * customer/promo + service charge. total = subtotal - discount + serviceCharge.
+   */
+  private async recomputeOrderTotals(
+    tx: Prisma.TransactionClient,
+    orderId: string,
+    ctx: TenantContext,
+  ): Promise<void> {
+    const order = await tx.sale.findUniqueOrThrow({
+      where: { id: orderId },
+      select: {
+        customerId: true,
+        promoCode: true,
+        type: true,
+        items: { select: { price: true, qty: true } },
+      },
+    });
+
+    let subtotal = Money.zero();
+    for (const it of order.items) {
+      subtotal = subtotal.add(Money.of(it.price).multiply(it.qty.toString()).toString());
+    }
+
+    const discount = await this.computeDiscount(
+      subtotal,
+      { promoCode: order.promoCode, customerId: order.customerId },
+      ctx,
+    );
+    const base = subtotal.subtract(discount.toString());
+
+    const isRestaurant = order.type === SaleType.DINE_IN || order.type === SaleType.TAKEAWAY;
+    const svcPct = isRestaurant ? await this.serviceChargePercent(ctx) : 0;
+    const serviceCharge = svcPct > 0 ? base.percent(svcPct) : Money.zero();
+    const total = base.add(serviceCharge.toString());
+
+    await tx.sale.update({
+      where: { id: orderId },
+      data: {
+        subtotal: subtotal.toPrisma(),
+        discount: discount.toPrisma(),
+        serviceCharge: serviceCharge.toPrisma(),
+        total: total.toPrisma(),
+      },
+    });
   }
 
   private async resolveDiscount(

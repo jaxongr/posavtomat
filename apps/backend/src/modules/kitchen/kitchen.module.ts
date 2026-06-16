@@ -31,7 +31,7 @@ class KitchenController {
         status: { in: [KotStatus.NEW, KotStatus.COOKING, KotStatus.READY] },
         sale: { organizationId: ctx.orgId, branchId: ctx.branchId },
       },
-      include: { sale: { select: { id: true, table: { select: { name: true } }, staff: { select: { fish: true } } } } },
+      include: { sale: { select: { id: true, tableId: true, table: { select: { name: true } }, staff: { select: { fish: true } } } } },
       orderBy: { sentAt: 'asc' },
     });
   }

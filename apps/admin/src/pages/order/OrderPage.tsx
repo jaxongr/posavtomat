@@ -1,5 +1,5 @@
 import { App, Button, Card, Col, Divider, Input, List, Modal, Radio, Row, Select, Space, Statistic, Tag, Typography } from 'antd';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { apiErrorMessage } from '../../api/client';
@@ -10,6 +10,7 @@ import { useCustomers } from '../../hooks/useMarketing';
 import { useOrganization } from '../../hooks/useRestaurant';
 import { useSettings } from '../../store/settings.store';
 import type { Product } from '../../types';
+import { foodIcon } from '../../utils/foodIcon';
 import { printReceipt } from '../../utils/receipt';
 
 export default function OrderPage() {
@@ -31,11 +32,38 @@ export default function OrderPage() {
   const [customerId, setCustomerId] = useState<string>();
   const [promoCode, setPromoCode] = useState('');
   const [sending, setSending] = useState(false);
+  const [savingCust, setSavingCust] = useState(false);
   const [payOpen, setPayOpen] = useState(false);
   const [provider, setProvider] = useState<'CASH' | 'CARD'>('CASH');
   const [paying, setPaying] = useState(false);
 
+  // Sync the customer/promo controls with the open order so they can be edited.
+  useEffect(() => {
+    if (order) {
+      setCustomerId(order.customer?.id);
+      setPromoCode(order.promoCode ?? '');
+    }
+  }, [order?.id, order?.customer?.id, order?.promoCode]);
+
   const sendTotal = useMemo(() => toSend.reduce((s, l) => s + Number(l.product.price) * l.qty, 0), [toSend]);
+
+  // Attach/update customer + promo on an already-open order (recomputes discount).
+  const applyCustomer = async () => {
+    if (!order) return;
+    setSavingCust(true);
+    try {
+      await ordersApi.setCustomer(order.id, {
+        ...(customerId ? { customerId } : {}),
+        ...(promoCode ? { promoCode } : {}),
+      });
+      message.success('Mijoz / chegirma qo‘llandi');
+      void qc.invalidateQueries({ queryKey: ['order', tableId] });
+    } catch (e) {
+      message.error(apiErrorMessage(e));
+    } finally {
+      setSavingCust(false);
+    }
+  };
 
   const addToSend = (p: Product) =>
     setToSend((prev) => {
@@ -90,6 +118,7 @@ export default function OrderPage() {
         lines: order.items.map((it) => ({ name: it.product.name, qty: Number(it.qty), price: Number(it.price) })),
         subtotal: Number(order.subtotal),
         discount: Number(order.discount),
+        serviceCharge: Number(order.serviceCharge),
         total: Number(order.total),
         provider,
         tableName,
@@ -149,39 +178,64 @@ export default function OrderPage() {
         <Col xs={24} md={14}>
           <Typography.Title level={5}>Menyu</Typography.Title>
           <QueryBoundary isLoading={products.isLoading} error={products.error} data={products.data} isEmpty={(d) => d.data.length === 0}>
-            {(d) => (
-              <Row gutter={[12, 12]}>
-                {d.data.map((p) => (
-                  <Col xs={12} sm={8} key={p.id}>
-                    <Card hoverable onClick={() => addToSend(p)} styles={{ body: { padding: 12 } }}>
-                      <div style={{ fontWeight: 600, minHeight: 40 }}>{p.name}</div>
-                      <div style={{ color: '#0EA5E9', fontWeight: 700 }}>{Number(p.price).toLocaleString()} so‘m</div>
-                    </Card>
-                  </Col>
-                ))}
-              </Row>
-            )}
+            {(d) => {
+              // Menu = sellable items only. Raw ingredients (xom ashyo) are
+              // depleted via recipes and must not appear as orderable dishes.
+              const menu = d.data.filter((p) => p.type !== 'INGREDIENT');
+              if (menu.length === 0) {
+                return <Typography.Text type="secondary">Menyuda taom yo‘q. «Katalog / Menyu»dan taom qo‘shing.</Typography.Text>;
+              }
+              return (
+                <Row gutter={[12, 12]}>
+                  {menu.map((p) => (
+                    <Col xs={12} sm={8} key={p.id}>
+                      <Card hoverable onClick={() => addToSend(p)} styles={{ body: { padding: 12 } }}>
+                        <div style={{ fontSize: 28, lineHeight: 1, marginBottom: 4 }}>{foodIcon(p.name, p.type)}</div>
+                        <div style={{ fontWeight: 600, minHeight: 40 }}>{p.name}</div>
+                        <div style={{ color: '#0EA5E9', fontWeight: 700 }}>{Number(p.price).toLocaleString()} so‘m</div>
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
+              );
+            }}
           </QueryBoundary>
         </Col>
 
         {/* Order */}
         <Col xs={24} md={10}>
+          {/* Customer + promo — works for both new and open orders. */}
+          <Card title="Mijoz / chegirma" size="small" style={{ marginBottom: 16 }}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Select
+                showSearch
+                allowClear
+                optionFilterProp="label"
+                style={{ width: '100%' }}
+                placeholder="Mijoz tanlang (shaxsiy chegirma)"
+                value={customerId}
+                onChange={setCustomerId}
+                options={(customers.data ?? []).map((c) => ({
+                  value: c.id,
+                  label: `${c.fish}${c.phone ? ` (${c.phone})` : ''}${Number(c.discountPercent) > 0 ? ` — ${Number(c.discountPercent)}%` : ''}`,
+                }))}
+              />
+              <Input placeholder="Promokod (ixtiyoriy)" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
+              {order && (
+                <Button block loading={savingCust} onClick={applyCustomer}>
+                  Mijoz / chegirmani qo‘llash
+                </Button>
+              )}
+              {order?.customer && (
+                <Typography.Text type="secondary">
+                  Biriktirilgan: {order.customer.fish}
+                  {Number(order.customer.discountPercent) > 0 ? ` (${Number(order.customer.discountPercent)}% chegirma)` : ''}
+                </Typography.Text>
+              )}
+            </Space>
+          </Card>
+
           <Card title="Yuboriladigan (yangi)" size="small" style={{ marginBottom: 16 }}>
-            {!order && (
-              <Space direction="vertical" style={{ width: '100%', marginBottom: 8 }}>
-                <Select
-                  showSearch
-                  allowClear
-                  optionFilterProp="label"
-                  style={{ width: '100%' }}
-                  placeholder="Mijoz (loyalty) — ixtiyoriy"
-                  value={customerId}
-                  onChange={setCustomerId}
-                  options={(customers.data ?? []).map((c) => ({ value: c.id, label: `${c.fish}${c.phone ? ` (${c.phone})` : ''}` }))}
-                />
-                <Input placeholder="Promokod (ixtiyoriy)" value={promoCode} onChange={(e) => setPromoCode(e.target.value)} />
-              </Space>
-            )}
             <List
               size="small"
               dataSource={toSend}
@@ -214,6 +268,25 @@ export default function OrderPage() {
                     </List.Item>
                   )}
                 />
+                <Divider style={{ margin: '12px 0' }} />
+                <Space direction="vertical" size={2} style={{ width: '100%' }}>
+                  <Row justify="space-between">
+                    <Typography.Text type="secondary">Oraliq summa</Typography.Text>
+                    <Typography.Text>{Number(order.subtotal).toLocaleString()} so‘m</Typography.Text>
+                  </Row>
+                  {Number(order.discount) > 0 && (
+                    <Row justify="space-between">
+                      <Typography.Text type="secondary">Chegirma</Typography.Text>
+                      <Typography.Text style={{ color: '#16A34A' }}>−{Number(order.discount).toLocaleString()} so‘m</Typography.Text>
+                    </Row>
+                  )}
+                  {Number(order.serviceCharge) > 0 && (
+                    <Row justify="space-between">
+                      <Typography.Text type="secondary">Xizmat haqi</Typography.Text>
+                      <Typography.Text>+{Number(order.serviceCharge).toLocaleString()} so‘m</Typography.Text>
+                    </Row>
+                  )}
+                </Space>
                 <Divider style={{ margin: '12px 0' }} />
                 <Statistic title="Jami hisob" value={Number(order.total)} suffix="so‘m" />
                 <Space style={{ marginTop: 12, width: '100%' }} direction="vertical">
