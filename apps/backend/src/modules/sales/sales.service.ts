@@ -417,7 +417,16 @@ export class SalesService {
 
   /** Open order for a table (or null). */
   async getOpenByTable(tableId: string, ctx: TenantContext) {
-    const order = await this.prisma.sale.findFirst({
+    const open = await this.prisma.sale.findFirst({
+      where: { tableId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
+      select: { id: true },
+    });
+    // Recompute on view so the bill always reflects the CURRENT service charge %
+    // and customer discount (e.g. set after the order was already opened).
+    if (open) {
+      await this.prisma.$transaction((tx) => this.recomputeOrderTotals(tx, open.id, ctx));
+    }
+    return this.prisma.sale.findFirst({
       where: { tableId, organizationId: ctx.orgId, branchId: ctx.branchId, status: SaleStatus.OPEN },
       include: {
         items: { include: { product: { select: { name: true } } } },
@@ -426,7 +435,6 @@ export class SalesService {
         kots: true,
       },
     });
-    return order;
   }
 
   /**
